@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Control</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="connection-status">
+        <div class="connection-dot" id="connection-dot"></div>
+        <span>WS</span>
+    </div>
+
+    <div class="container">
+        <h1>Mission Control</h1>
+        <p class="subtitle">Cooperative Smart Home Challenge Game</p>
+
+        <!-- Setup Screen -->
+        <div class="screen active" id="screen-setup">
+            <div class="tab-bar">
+                <button class="tab active" data-tab="tab-launch">Launch</button>
+                <button class="tab" data-tab="tab-challenges">Challenges</button>
+                <button class="tab" data-tab="tab-settings">Settings</button>
+            </div>
+
+            <!-- Tab: Launch (default) -->
+            <div class="tab-panel active" id="tab-launch">
+                <!-- Setup required banner (hidden when configured) -->
+                <div class="setup-required-banner" id="setup-required-banner" style="display:none">
+                    <div class="banner-text">Speakers not configured yet.</div>
+                    <button class="btn-rethink" onclick="App.switchTab('tab-settings')">Go to Settings</button>
+                </div>
+
+                <div id="launch-content">
+                    <div class="section-label">Choose Your Theme</div>
+                    <div class="theme-grid">
+                        <div class="theme-card" data-theme="mission_control">
+                            <div class="theme-icon">🎯</div>
+                            <div class="theme-name">Mission Control</div>
+                        </div>
+                        <div class="theme-card" data-theme="bluey">
+                            <div class="theme-icon">🐕</div>
+                            <div class="theme-name">Bluey</div>
+                        </div>
+                        <div class="theme-card" data-theme="snoop_and_sniffy">
+                            <div class="theme-icon">🔍</div>
+                            <div class="theme-name">Snoop & Sniffy</div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="input-rounds">Rounds</label>
+                            <input type="number" id="input-rounds" value="5" min="1" max="50">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-difficulty">Difficulty</label>
+                            <select id="input-difficulty">
+                                <option value="easy">Easy</option>
+                                <option value="mixed" selected>Mixed</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="input-hub-speaker-select">Hub Speaker</label>
+                            <select id="input-hub-speaker-select">
+                                <option value="">-- Configure in Settings --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <label class="toggle-label" style="padding-top:4px">
+                                <input type="checkbox" id="input-test-mode">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-text">Test Mode</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="test-speaker-select" id="test-speaker-select" style="display:none;">
+                        <div class="form-group">
+                            <label for="input-test-speaker">Test Speaker</label>
+                            <select id="input-test-speaker">
+                                <option value="">-- Configure in Settings --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="floor-filter-group" style="display:none">
+                        <div class="section-label">Floor Filter</div>
+                        <div id="floor-checkboxes" class="floor-checkboxes"></div>
+                    </div>
+
+                    <div class="challenge-db-summary" id="challenge-db-summary"></div>
+
+                    <div class="launch-split-btn">
+                        <button class="btn btn-primary launch-main" id="btn-launch">Launch Mission</button>
+                        <button class="btn btn-primary launch-dropdown" id="btn-launch-dropdown">&#9662;</button>
+                        <div class="launch-dropdown-menu" id="launch-dropdown-menu" style="display:none">
+                            <button class="launch-dropdown-item" id="btn-review-launch">Review & Launch</button>
+                        </div>
+                    </div>
+                    <div class="launch-split-btn" style="margin-top:10px">
+                        <button class="btn btn-atv launch-main" id="btn-launch-atv">Launch Mission (Apple TV)</button>
+                        <button class="btn btn-atv launch-dropdown" id="btn-launch-atv-dropdown">&#9662;</button>
+                        <div class="launch-dropdown-menu" id="launch-atv-dropdown-menu" style="display:none">
+                            <button class="launch-dropdown-item" id="btn-review-launch-atv">Review & Launch</button>
+                        </div>
+                    </div>
+
+                    <!-- Review panel (shown during review flow) -->
+                    <div id="review-panel" style="display:none">
+                        <div class="section-label" style="margin-top:16px">Review Challenges</div>
+                        <p class="setup-desc">Remove or shuffle challenges before launching. <span id="review-count"></span></p>
+                        <div id="review-challenge-list"></div>
+                        <div class="btn-row" style="margin-top:16px">
+                            <button class="btn btn-primary" id="btn-confirm-launch">Confirm Launch</button>
+                            <button class="btn btn-secondary" id="btn-cancel-review">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Challenges -->
+            <div class="tab-panel" id="tab-challenges">
+                <div class="section-label">Challenge Database</div>
+                <div id="approved-challenges-list"></div>
+
+                <div class="section-label" style="margin-top:28px">Generate New Challenges</div>
+
+                <div class="section-label" style="margin-top:14px;font-size:0.62rem;color:var(--accent)">Step 1 — Scan Home Assistant</div>
+                <p class="setup-desc">Fetch entities from your Home Assistant to generate challenges.</p>
+                <button class="btn btn-secondary" id="btn-fetch-entities">Scan Entities</button>
+                <div class="entity-status" id="entity-status"></div>
+
+                <div class="section-label" style="margin-top:18px;font-size:0.62rem;color:var(--accent)">Step 2 — Generate Suggestions</div>
+                <p class="setup-desc">Send entities to Claude AI to suggest fun challenges.</p>
+                <div class="form-group" style="margin-top:6px;margin-bottom:14px">
+                    <label for="input-generation-prompt">Custom Instructions (optional)</label>
+                    <textarea id="input-generation-prompt" rows="2" placeholder="e.g. Include a mission for the refrigerator door, focus on upstairs, make them extra silly..." style="width:100%;resize:vertical;"></textarea>
+                </div>
+                <button class="btn btn-secondary" id="btn-suggest" disabled>Generate Suggestions</button>
+                <div class="suggest-status" id="suggest-status"></div>
+
+                <div class="section-label" style="margin-top:18px;font-size:0.62rem;color:var(--accent)">Step 3 — Review & Approve</div>
+                <div id="suggestions-area"></div>
+
+                <div class="section-label" style="margin-top:28px">Blacklisted Entities</div>
+                <p class="setup-desc">Denied entities won't be used in future challenge generation.</p>
+                <div id="blacklist-list"></div>
+            </div>
+
+            <!-- Tab: Settings -->
+            <div class="tab-panel" id="tab-settings">
+                <div class="section-label">Connection</div>
+                <div class="form-group">
+                    <label for="input-ha-url">Home Assistant URL</label>
+                    <input type="text" id="input-ha-url" placeholder="http://homeassistant.local:8123">
+                </div>
+                <div class="form-group" style="margin-top:12px">
+                    <label for="input-ha-token">HA Long-Lived Access Token</label>
+                    <input type="password" id="input-ha-token" placeholder="Paste token here">
+                    <span class="field-status" id="status-ha-token"></span>
+                </div>
+                <div class="section-label" style="margin-top:20px">API Keys</div>
+                <div class="form-group">
+                    <label for="input-elevenlabs-key">ElevenLabs API Key</label>
+                    <input type="password" id="input-elevenlabs-key" placeholder="Paste key here">
+                    <span class="field-status" id="status-elevenlabs-key"></span>
+                </div>
+                <div class="form-group" style="margin-top:12px">
+                    <label for="input-openrouter-key">OpenRouter API Key</label>
+                    <input type="password" id="input-openrouter-key" placeholder="Paste key here">
+                    <span class="field-status" id="status-openrouter-key"></span>
+                </div>
+                <div class="section-label" style="margin-top:20px">Network</div>
+                <div class="form-group">
+                    <label for="input-server-url">Server URL (reachable by Sonos)</label>
+                    <input type="text" id="input-server-url" placeholder="http://192.168.1.x:8765">
+                    <span class="field-hint">LAN IP of this machine + port 8765</span>
+                </div>
+                <div class="cache-status" id="cache-status"></div>
+                <button class="btn btn-secondary" id="btn-save-config" style="margin-top:16px">Save Settings</button>
+
+                <div class="section-label" style="margin-top:28px">Speakers</div>
+                <p class="setup-desc">Discover speakers from Home Assistant, then choose which ones to use.</p>
+                <button class="btn btn-secondary" id="btn-discover-speakers">Discover Speakers</button>
+                <div class="speaker-status" id="speaker-status"></div>
+                <div id="speaker-list"></div>
+
+                <div class="form-group" style="margin-top:16px">
+                    <label for="input-speaker-volume">Speaker Volume: <span id="volume-display">40%</span></label>
+                    <input type="range" id="input-speaker-volume" min="0" max="100" value="40" step="5" style="width:100%;max-width:300px">
+                    <span class="field-hint">Adjust to a comfortable level for your home. Starts low — increase as needed.</span>
+                </div>
+
+                <div class="section-label" style="margin-top:28px">Floors</div>
+                <p class="setup-desc">Define floors and assign areas to filter challenges at launch time.</p>
+                <div id="floor-config-list"></div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                    <button class="btn btn-secondary btn-small" id="btn-add-floor">Add Floor</button>
+                    <button class="btn btn-approve btn-small" id="btn-save-floors">Save Floors</button>
+                </div>
+
+                <div class="section-label" style="margin-top:28px">Intro Music</div>
+                <p class="setup-desc">Preview, regenerate, or delete intro music for each theme.</p>
+                <div id="intro-music-list"></div>
+
+                <div class="section-label" style="margin-top:28px">Scene Images</div>
+                <p class="setup-desc">Pre-generate AI scene images for Apple TV backgrounds. Images are cached and reused across games.</p>
+                <div style="display:flex;gap:8px;margin-bottom:12px">
+                    <button class="btn btn-approve btn-small" onclick="App.generateAllSceneImages()">Generate All Missing</button>
+                    <button class="btn btn-deny btn-small" onclick="App.deleteAllSceneImages()">Delete All</button>
+                </div>
+                <div id="scene-images-list"></div>
+
+                <div class="section-label" style="margin-top:28px">Theme Phrases</div>
+                <p class="setup-desc">View and edit intro/outro phrases for each theme. These are the TTS announcements spoken during games.</p>
+                <div id="theme-phrases-list"></div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div class="screen" id="screen-game">
+            <div class="score-bar">
+                <div class="score-item">
+                    <div class="score-value" id="score-completed">0</div>
+                    <div class="score-label">Completed</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value" id="score-total-time">0.0s</div>
+                    <div class="score-label">Total Time</div>
+                </div>
+                <div class="score-item">
+                    <div class="score-value" id="score-avg-time">0.0s</div>
+                    <div class="score-label">Avg Time</div>
+                </div>
+            </div>
+
+            <div id="game-active-area">
+                <div class="waiting-message">
+                    <div class="spinner"></div>
+                    <div>Waiting for game...</div>
+                </div>
+            </div>
+
+            <button class="btn btn-advance" id="btn-advance" style="display:none;">Next Mission</button>
+
+            <div class="btn-row">
+                <button class="btn btn-secondary" id="btn-skip">Skip Round</button>
+                <button class="btn btn-danger" id="btn-stop">Stop Game</button>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div class="screen" id="screen-results">
+            <div class="results-summary" id="results-summary">-</div>
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Challenge</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="results-tbody"></tbody>
+            </table>
+            <button class="btn btn-primary" id="btn-play-again">Play Again</button>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

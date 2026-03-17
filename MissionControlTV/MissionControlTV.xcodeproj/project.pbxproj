@@ -1,0 +1,295 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA000001 /* MissionControlTVApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000011 /* MissionControlTVApp.swift */; };
+		AA000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000012 /* ContentView.swift */; };
+		AA000003 /* GameViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013 /* GameViewModel.swift */; };
+		AA000004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000014 /* Assets.xcassets */; };
+		AA000005 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000015 /* HomeView.swift */; };
+		AA000006 /* LocalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000016 /* LocalSetupView.swift */; };
+		AA000007 /* ThemeVisuals.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000017 /* ThemeVisuals.swift */; };
+		AA000008 /* ParticleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000018 /* ParticleView.swift */; };
+		AA000009 /* CinematicTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000019 /* CinematicTransition.swift */; };
+		AA00000A /* RemoteImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001A /* RemoteImageView.swift */; };
+		AA00000B /* IntroSequenceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001B /* IntroSequenceView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA000010 /* MissionControlTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MissionControlTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA000011 /* MissionControlTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissionControlTVApp.swift; sourceTree = "<group>"; };
+		AA000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		AA000013 /* GameViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameViewModel.swift; sourceTree = "<group>"; };
+		AA000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA000015 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		AA000016 /* LocalSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalSetupView.swift; sourceTree = "<group>"; };
+		AA000017 /* ThemeVisuals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeVisuals.swift; sourceTree = "<group>"; };
+		AA000018 /* ParticleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ParticleView.swift; path = Effects/ParticleView.swift; sourceTree = "<group>"; };
+		AA000019 /* CinematicTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CinematicTransition.swift; path = Effects/CinematicTransition.swift; sourceTree = "<group>"; };
+		AA00001A /* RemoteImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RemoteImageView.swift; path = Effects/RemoteImageView.swift; sourceTree = "<group>"; };
+		AA00001B /* IntroSequenceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = IntroSequenceView.swift; path = Scenes/IntroSequenceView.swift; sourceTree = "<group>"; };
+		AA00001C /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA000020 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AA000030 = {
+			isa = PBXGroup;
+			children = (
+				AA00001C /* Config.xcconfig */,
+				AA000031 /* MissionControlTV */,
+				AA000032 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AA000031 /* MissionControlTV */ = {
+			isa = PBXGroup;
+			children = (
+				AA000011 /* MissionControlTVApp.swift */,
+				AA000012 /* ContentView.swift */,
+				AA000013 /* GameViewModel.swift */,
+				AA000015 /* HomeView.swift */,
+				AA000016 /* LocalSetupView.swift */,
+				AA000017 /* ThemeVisuals.swift */,
+				AA000018 /* ParticleView.swift */,
+				AA000019 /* CinematicTransition.swift */,
+				AA00001A /* RemoteImageView.swift */,
+				AA00001B /* IntroSequenceView.swift */,
+				AA000014 /* Assets.xcassets */,
+			);
+			path = MissionControlTV;
+			sourceTree = "<group>";
+		};
+		AA000032 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA000010 /* MissionControlTV.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA000040 /* MissionControlTV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA000060 /* Build configuration list for PBXNativeTarget "MissionControlTV" */;
+			buildPhases = (
+				AA000041 /* Sources */,
+				AA000020 /* Frameworks */,
+				AA000042 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MissionControlTV;
+			productName = MissionControlTV;
+			productReference = AA000010 /* MissionControlTV.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AA000050 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					AA000040 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+				};
+			};
+			buildConfigurationList = AA000051 /* Build configuration list for PBXProject "MissionControlTV" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AA000030;
+			productRefGroup = AA000032 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AA000040 /* MissionControlTV */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA000042 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000004 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AA000041 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000001 /* MissionControlTVApp.swift in Sources */,
+				AA000002 /* ContentView.swift in Sources */,
+				AA000003 /* GameViewModel.swift in Sources */,
+				AA000005 /* HomeView.swift in Sources */,
+				AA000006 /* LocalSetupView.swift in Sources */,
+				AA000007 /* ThemeVisuals.swift in Sources */,
+				AA000008 /* ParticleView.swift in Sources */,
+				AA000009 /* CinematicTransition.swift in Sources */,
+				AA00000A /* RemoteImageView.swift in Sources */,
+				AA00000B /* IntroSequenceView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AA000061 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		AA000062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AA000063 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA00001C /* Config.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MissionControlTV/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Debug;
+		};
+		AA000064 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA00001C /* Config.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MissionControlTV/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA000051 /* Build configuration list for PBXProject "MissionControlTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA000061 /* Debug */,
+				AA000062 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA000060 /* Build configuration list for PBXNativeTarget "MissionControlTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA000063 /* Debug */,
+				AA000064 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AA000050 /* Project object */;
+}

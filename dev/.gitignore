@@ -1,0 +1,18 @@
+# HA generates these in the config directory
+ha-config/.storage/
+ha-config/*.db
+ha-config/*.db-shm
+ha-config/*.db-wal
+ha-config/*.log
+ha-config/deps/
+ha-config/tts/
+ha-config/backups/
+# Track our custom component, ignore HA-installed ones
+ha-config/custom_components/*
+!ha-config/custom_components/dev_speakers/
+ha-config/.HA_VERSION
+ha-config/.cloud/
+ha-config/blueprints/
+ha-config/image/
+ha-config/www/
+.env

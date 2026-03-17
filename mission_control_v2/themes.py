@@ -1,0 +1,225 @@
+"""Theme definitions for Mission Control."""
+import random
+from dataclasses import dataclass, field
+
+
+MISSION_CONTROL_PREFIXES = [
+    "New orders from the top...",
+    "Agents, your next objective...",
+    "Intel confirms a new target...",
+    "Listen up, agents...",
+    "We have a developing situation...",
+]
+
+BLUEY_PREFIXES = [
+    "Okay, new rule.",
+    "Right. For this next one...",
+    "This one's a bit tricky.",
+    "Ready? This one's important.",
+    "Okay everyone, listen to this.",
+]
+
+SNOOP_PREFIXES = [
+    "Snoop here. We've got a new case...",
+    "Sniffy just caught a whiff of something...",
+    "New case just came in, detectives...",
+    "Snoop here. The plot thickens...",
+    "A new clue has appeared...",
+    "Sniffy's ears just perked up...",
+]
+
+
+@dataclass
+class Theme:
+    name: str
+    slug: str
+    announcer_voice: str
+    celebration_voice: str
+    intro_texts: list[str]
+    outro_texts: list[str]  # {total_time} and {rounds} placeholders
+    announcement_prefixes: list[str] = field(default_factory=list)
+    success_prefixes: list[str] = field(default_factory=list)
+    hint_prefixes: list[str] = field(default_factory=list)
+    timeout_phrases: list[str] = field(default_factory=list)
+    intro_music_prompt: str = ""
+    intro_scene_prompt: str = ""
+    outro_scene_prompt: str = ""
+    transition_prompt: str = ""
+    mission_scene_template: str = ""  # use {room} placeholder
+
+    def wrap_announcement(self, text: str) -> str:
+        if self.announcement_prefixes:
+            prefix = random.choice(self.announcement_prefixes)
+            return f"{prefix} {text}"
+        return text
+
+    def wrap_success(self, text: str) -> str:
+        if self.success_prefixes:
+            prefix = random.choice(self.success_prefixes)
+            return f"{prefix} {text}"
+        return text
+
+    def wrap_hint(self, text: str) -> str:
+        if self.hint_prefixes:
+            prefix = random.choice(self.hint_prefixes)
+            return f"{prefix} {text}"
+        return text
+
+    def pick_timeout(self) -> str:
+        if self.timeout_phrases:
+            return random.choice(self.timeout_phrases)
+        return "Time's up. Moving on..."
+
+    def pick_intro(self) -> str:
+        return random.choice(self.intro_texts)
+
+    def pick_outro(self) -> str:
+        return random.choice(self.outro_texts)
+
+
+class MissionControlTheme(Theme):
+    def __init__(self):
+        super().__init__(
+            name="Mission Control",
+            slug="mission_control",
+            announcer_voice="onwK4e9ZLuTAKqWW03F9",  # Daniel
+            celebration_voice="onwK4e9ZLuTAKqWW03F9",  # Daniel
+            announcement_prefixes=list(MISSION_CONTROL_PREFIXES),
+            success_prefixes=[
+                "Consider it handled.",
+                "Excellent work, team.",
+                "Target acquired. Outstanding.",
+                "Mission Control is impressed.",
+                "Objective neutralized. Stand by for the next.",
+            ],
+            hint_prefixes=[
+                "Mission Control has a tip for you...",
+                "Intel just came in...",
+                "Agents, here's a clue...",
+                "Headquarters has some advice...",
+                "Pay attention, agents. A hint from the top...",
+            ],
+            timeout_phrases=[
+                "Time's up, agents. That mission is a bust. Regroup and move on.",
+                "Mission failed. Don't worry, agents. There are more assignments ahead.",
+                "We've lost that one, team. Shake it off. Next mission incoming.",
+            ],
+            intro_music_prompt="Cinematic spy thriller intro music, tense building orchestral with electronic elements, secret agent briefing scene, 15 seconds, dramatic and exciting, suitable for children",
+            intro_scene_prompt="Cinematic spy headquarters briefing room, agents silhouetted against a giant holographic world map, blue and cyan neon lighting, high-tech screens everywhere, dramatic atmosphere, no text, digital art, 16:9",
+            outro_scene_prompt="Triumphant secret agent team celebration, fireworks and confetti against night sky, golden trophy, cinematic lighting, digital art, no text, 16:9",
+            transition_prompt="Spy headquarters corridor with blue laser grid security system, moody lighting, cinematic perspective, digital art, no text, 16:9",
+            mission_scene_template="Secret agent mission scene in a {room}, dramatic blue lighting, spy thriller atmosphere, kid-friendly, cinematic digital art, no text, 16:9",
+            intro_texts=[
+                "Attention all agents. Mission Control here. Your mission, should you choose to accept it, begins now. Stand by for your first assignment.",
+                "This is Mission Control. We have a situation that requires your immediate attention. Agents, prepare for deployment. Your assignments are incoming.",
+                "Good evening, agents. Mission Control has received intelligence of a critical operation. You have been selected. Prepare yourselves. Here we go.",
+                "All agents report. This is not a drill. Mission Control is going live. Get ready for your first mission.",
+            ],
+            outro_texts=[
+                "Mission complete. All agents performed brilliantly. Total time... {total_time} seconds across {rounds} missions. You are officially the best team Mission Control has ever worked with.",
+                "That's a wrap, agents. {total_time} seconds, {rounds} missions, zero failures. Well... maybe a few stumbles, but Mission Control isn't judging. Much.",
+                "Mission Control is impressed. {rounds} missions completed in {total_time} seconds. Your security clearance has been upgraded to... legendary.",
+                "All objectives achieved. {total_time} seconds across {rounds} missions. That was top secret, world class spy work. Mission Control out.",
+            ],
+        )
+
+
+class BlueyTheme(Theme):
+    def __init__(self):
+        super().__init__(
+            name="Bluey",
+            slug="bluey",
+            announcer_voice="QhzTYkz7VbKNwVeK3URf",  # Sammy (Bluey)
+            celebration_voice="hk6wpUusj7FFV03U5LvR",  # Bruce (Dad/Bandit)
+            announcement_prefixes=list(BLUEY_PREFIXES),
+            success_prefixes=[
+                "Wackadoo. Nice one, kids.",
+                "Hooray. That was a good one.",
+                "That was brilliant, mate.",
+                "Ooh, good job, squirts.",
+                "Beauty. Well done, kids.",
+            ],
+            hint_prefixes=[
+                "Bingo says...",
+                "Ooh ooh, here's a clue...",
+                "Dad would say...",
+                "Mum always says...",
+                "Hey, try this...",
+            ],
+            timeout_phrases=[
+                "Aww, we didn't get that one. That's ok. Let's try the next one.",
+                "Oh no. Time ran out. Don't worry, Bingo says we'll get the next one for sure.",
+                "We missed that one. But that's ok because... we're Bluey and Bingo and we never give up.",
+            ],
+            intro_music_prompt="Playful upbeat Australian kids TV show theme music, xylophone and ukulele, bouncy and cheerful like the Bluey cartoon intro, 15 seconds, fun and energetic",
+            intro_scene_prompt="Bluey and Bingo playing in a colorful Australian backyard with a treehouse, cartoon blue heeler puppies, warm sunny day, Bluey TV show style animation, kookaburras and wombats, no text, 16:9",
+            outro_scene_prompt="Bluey and Bingo celebrating with balloons and streamers in the backyard, cartoon blue heeler puppies jumping for joy, golden afternoon light, Bluey TV show style, no text, 16:9",
+            transition_prompt="Bluey and Bingo running along a cartoon backyard path, colorful flowers and butterflies, warm sunshine, Bluey TV show style animation, no text, 16:9",
+            mission_scene_template="Bluey and Bingo on a mission in a cartoon {room}, blue heeler puppies exploring, bright colors, Bluey TV show style animation, warm and cheerful, no text, 16:9",
+            intro_texts=[
+                "This episode of Bluey is called... Mission Control. Bluey and Bingo have a super important mission. Ready? Here we go...",
+                "Bluey here. Bingo and I have invented the best game ever. It's called Mission Control. Here's your first one...",
+                "Mum said we could play one more game before bed. So obviously we picked... Mission Control. Let's go...",
+                "Dad, Dad, watch this. We're playing Mission Control. Ok everyone, get ready... this is going to be amazing...",
+            ],
+            outro_texts=[
+                "Well done, kids. {total_time} seconds across {rounds} missions. That was... honestly pretty impressive. Mum, did you see what they just did.",
+                "Right. {rounds} missions in {total_time} seconds. I reckon that's a new family record. Who wants ice cream.",
+                "You absolute legends. {total_time} seconds for {rounds} missions. I think we might be the best Mission Controllers in all of Brisbane... maybe even the world.",
+                "That's it, kids. {rounds} missions, {total_time} seconds. I'm not crying... I've just got something in my eye. Alright, who's up for another round.",
+            ],
+        )
+
+
+class SnoopAndSniffyTheme(Theme):
+    def __init__(self):
+        super().__init__(
+            name="Snoop and Sniffy",
+            slug="snoop_and_sniffy",
+            announcer_voice="JBFqnCBsd6RMkjVDRZzb",  # George
+            celebration_voice="ThT5KcBeYPX3keUQqHPh",  # Dorothy
+            announcement_prefixes=list(SNOOP_PREFIXES),
+            success_prefixes=[
+                "Case cracked.",
+                "Another mystery solved.",
+                "Elementary, detectives.",
+                "Sniffy is doing a happy dance.",
+                "The evidence doesn't lie. Well done, detectives.",
+            ],
+            hint_prefixes=[
+                "Sniffy sniffed out a clue...",
+                "Snoop has a lead...",
+                "The evidence suggests...",
+                "A clue from headquarters...",
+                "Sniffy's nose is twitching... that means...",
+            ],
+            timeout_phrases=[
+                "That case has gone cold. But don't worry, detectives. There are more mysteries to solve.",
+                "Time's up on that one. Even Sniffy couldn't crack it. Let's move on to the next case.",
+                "The trail went cold. Shake it off, detectives. Snoop and Sniffy have another case for you.",
+            ],
+            intro_music_prompt="Mysterious detective investigation music, pizzicato strings and sneaky woodwinds, like a children's mystery cartoon, curious and playful, 15 seconds, building suspense",
+            intro_scene_prompt="Cozy detective office with magnifying glass, old maps pinned to wall, warm lamplight, mysterious shadows, children's mystery book illustration style, no text, 16:9",
+            outro_scene_prompt="Detectives celebrating a solved case, confetti and gold stars, warm cozy lamplight, happy ending, children's mystery illustration, no text, 16:9",
+            transition_prompt="Mysterious footprints trail along a foggy path, detective hat and magnifying glass, warm amber tones, children's illustration, no text, 16:9",
+            mission_scene_template="Detective investigation scene in a {room}, magnifying glass, warm amber lamplight, mysterious clues, children's mystery illustration, no text, 16:9",
+            intro_texts=[
+                "Snoop here, and Sniffy's right beside me. We've got a big case to crack. Detectives, are you ready? The game is afoot...",
+                "The name's Snoop. My partner Sniffy just picked up a scent. Detectives, we need your help. Let's sniff this out...",
+                "Snoop and Sniffy, reporting for duty. We've got a case file thicker than Sniffy's favorite bone. Ready, detectives? Let's crack it...",
+                "Sniffy's tail is wagging. That means trouble. Big trouble. Detectives, grab your magnifying glasses. The case begins now... elementary...",
+            ],
+            outro_texts=[
+                "Case closed. Snoop and Sniffy couldn't have done it without you. {total_time} seconds across {rounds} cases. You're the best detectives in the whole neighborhood.",
+                "Every case cracked. {rounds} mysteries solved in {total_time} seconds. Sniffy's doing a victory lap around the garden. You've earned your detective badges today.",
+                "That's {rounds} cases in {total_time} seconds. Snoop is speechless. Actually... Snoop is never speechless, but this is close. Outstanding detective work.",
+                "All {rounds} cases solved. {total_time} seconds. Sniffy wants to give everyone a big lick on the face. I told him that's not professional... He doesn't care.",
+            ],
+        )
+
+
+ALL_THEMES = {
+    "mission_control": MissionControlTheme(),
+    "bluey": BlueyTheme(),
+    "snoop_and_sniffy": SnoopAndSniffyTheme(),
+}

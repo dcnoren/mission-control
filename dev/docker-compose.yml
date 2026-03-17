@@ -1,0 +1,46 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./ha-config:/config
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8123/auth/providers || curl -sf http://localhost:8123/api/onboarding"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
+
+  ha-setup:
+    image: python:3.12-slim
+    depends_on:
+      homeassistant:
+        condition: service_healthy
+    volumes:
+      - ./setup-ha.py:/setup-ha.py:ro
+      - mc-data:/mc-data
+    command: >
+      sh -c "pip install -q websockets requests &&
+             python /setup-ha.py http://homeassistant:8123 /mc-data/config.json"
+    restart: "no"
+
+  mission-control:
+    build: ../mission_control_v2
+    ports:
+      - "8765:8765"
+    volumes:
+      - mc-data:/app/data
+    environment:
+      - HA_URL=http://homeassistant:8123
+      - SERVER_URL=http://localhost:8765
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    depends_on:
+      ha-setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  mc-data:

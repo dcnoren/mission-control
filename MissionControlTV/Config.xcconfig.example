@@ -1,0 +1,5 @@
+// Copy this file to Config.xcconfig and fill in your Apple Developer Team ID.
+// Find your Team ID at: https://developer.apple.com/account -> Membership Details
+
+DEVELOPMENT_TEAM = YOUR_TEAM_ID_HERE
+PRODUCT_BUNDLE_IDENTIFIER = com.missioncontrol.tv

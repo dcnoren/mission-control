@@ -1,0 +1,16 @@
+services:
+  mission-control:
+    build: .
+    ports:
+      - "8765:8765"
+    volumes:
+      - mc-data:/app/data
+    environment:
+      - HA_URL=${HA_URL:-http://homeassistant.local:8123}
+      - HA_TOKEN=${HA_TOKEN}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    restart: unless-stopped
+
+volumes:
+  mc-data:

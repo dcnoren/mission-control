@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+audio_samples/
+.env
+xcuserdata/
+*.xcworkspace/
+MissionControlTV/Config.xcconfig

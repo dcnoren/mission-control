@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="768" viewBox="0 0 1280 768">
+  <defs>
+    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="50%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="chevron-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <filter id="text-glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="icon-glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="drop-shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <linearGradient id="shield-fill" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#0f1d36"/>
+      <stop offset="100%" stop-color="#0a1424"/>
+    </linearGradient>
+    <linearGradient id="shield-stroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.7"/>
+      <stop offset="50%" stop-color="#7dd3fc" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Central shield/emblem shape -->
+  <g transform="translate(640, 340)" filter="url(#drop-shadow)">
+    <!-- Shield body -->
+    <path d="M 0 -110 L 75 -80 L 85 -30 L 85 30 L 60 90 L 0 120 L -60 90 L -85 30 L -85 -30 L -75 -80 Z"
+          fill="url(#shield-fill)" stroke="url(#shield-stroke)" stroke-width="2.5"/>
+
+    <!-- Inner shield border -->
+    <path d="M 0 -95 L 63 -68 L 72 -25 L 72 25 L 50 77 L 0 104 L -50 77 L -72 25 L -72 -25 L -63 -68 Z"
+          fill="none" stroke="#38bdf8" stroke-width="0.8" opacity="0.3"/>
+
+    <!-- Stylized house/home icon inside shield -->
+    <g transform="translate(0, -15)">
+      <!-- House roof - chevron pointing up -->
+      <path d="M 0 -42 L 38 -10 L 30 -10 L 30 25 L -30 25 L -30 -10 L -38 -10 Z"
+            fill="none" stroke="url(#logo-grad)" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+
+      <!-- Door -->
+      <rect x="-8" y="5" width="16" height="20" rx="2" fill="none" stroke="url(#logo-grad)" stroke-width="2.5"/>
+
+      <!-- Signal waves emanating from house - smart home -->
+      <path d="M 42 -20 Q 55 -5, 42 10" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+      <path d="M 50 -28 Q 68 -5, 50 18" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+
+      <path d="M -42 -20 Q -55 -5, -42 10" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+      <path d="M -50 -28 Q -68 -5, -50 18" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+    </g>
+
+    <!-- Small star/spark at the top of the shield -->
+    <g transform="translate(0, -110)" filter="url(#icon-glow)">
+      <polygon points="0,-8 2,-2 8,0 2,2 0,8 -2,2 -8,0 -2,-2" fill="#f59e0b" opacity="0.9"/>
+    </g>
+  </g>
+
+  <!-- "MISSION CONTROL" text -->
+  <g filter="url(#text-glow)">
+    <!-- MISSION -->
+    <text x="640" y="510" text-anchor="middle" font-family="'SF Pro Display', 'Helvetica Neue', 'Arial Black', sans-serif"
+          font-size="42" font-weight="900" letter-spacing="12" fill="#e2e8f0"
+          style="text-transform: uppercase">MISSION</text>
+    <!-- CONTROL -->
+    <text x="640" y="555" text-anchor="middle" font-family="'SF Pro Display', 'Helvetica Neue', 'Arial Black', sans-serif"
+          font-size="28" font-weight="700" letter-spacing="18" fill="#38bdf8" opacity="0.85"
+          style="text-transform: uppercase">CONTROL</text>
+  </g>
+
+  <!-- Thin decorative line under text -->
+  <line x1="530" y1="572" x2="750" y2="572" stroke="#38bdf8" stroke-width="1" opacity="0.3"/>
+  <line x1="580" y1="578" x2="700" y2="578" stroke="#f59e0b" stroke-width="0.8" opacity="0.2"/>
+</svg>
