@@ -96,7 +96,7 @@ services:
       - HA_TOKEN=your_long_lived_access_token
       - ELEVENLABS_API_KEY=sk_...
       - OPENROUTER_API_KEY=sk-or-v1-...
-      - SERVER_URL=http://your-lan-ip:8765
+      - SERVER_URL=http://your-docker-host-ip:8765
     restart: unless-stopped
 
 volumes:
