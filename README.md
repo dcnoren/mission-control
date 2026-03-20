@@ -6,6 +6,8 @@ A cooperative smart home challenge game for kids. Players race around the house 
 
 **Mission Control turns your smart home into a playground.** An LLM scans your actual Home Assistant devices and generates age-appropriate challenges on the fly. Kids physically run to rooms, flip real switches, and the system detects completion in real-time via Home Assistant's WebSocket API.
 
+![Launch screen](docs/screenshots/launch.png)
+
 ## Warnings
 
 - **Unmoderated AI-generated content.** Text, audio, and visual content is generated using a combination of embedded prompts within this project and content influenced by your smart home and device names. The "Challenges" and "Settings" panes offer ways for you to view the generated text which will be converted to audio using ElevenLabs. This content is currently not pre-emptively moderated. This application offers methods to preview and re-generate some, but not all, content.
@@ -108,6 +110,8 @@ Open **http://localhost:8765** in your browser.
 
 ### 2. Settings Tab
 
+![Settings tab](docs/screenshots/settings.png)
+
 Go to the **Settings** tab and verify:
 - **Home Assistant URL** and **access token** are correct
 - **ElevenLabs** and **OpenRouter API keys** are filled in
@@ -123,6 +127,8 @@ Save your settings.
 
 ### 3. Challenges Tab
 
+![Challenges tab](docs/screenshots/challenges.png)
+
 Switch to the **Challenges** tab:
 
 1. **Scan entities** — click **"Scan"** to discover all devices in Home Assistant (lights, switches, sensors, covers, locks, etc.)
@@ -131,6 +137,8 @@ Switch to the **Challenges** tab:
 4. **Assign speakers** — verify each challenge has the right room speaker for its success message (auto-assigned based on room proximity, but you can override)
 
 ### 4. Launch a Game
+
+![Game in progress](docs/screenshots/game-active.png)
 
 Back on the main tab, pick a theme, set the number of rounds and difficulty filter, then hit **"Launch Mission."** The game:
 
@@ -143,6 +151,10 @@ Back on the main tab, pick a theme, set the number of rounds and difficulty filt
 ### 5. Apple TV Companion (Optional)
 
 For a more immersive experience, build and deploy the tvOS companion app to display mission cards and play audio through your TV.
+
+![Apple TV home](docs/screenshots/appletv-home.png)
+![Apple TV mission setup](docs/screenshots/appletv-mission-setup.png)
+![Apple TV mission card](docs/screenshots/appletv-mission.png)
 
 **Setup (one-time):**
 
