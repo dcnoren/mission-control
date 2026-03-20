@@ -118,7 +118,7 @@ Go to the **Settings** tab and verify:
 - **ElevenLabs** and **OpenRouter API keys** are filled in
 - **Server URL** is set to the LAN-reachable IP of this machine (e.g. `http://192.168.1.100:8765`) — speakers fetch audio from this address, so `localhost` won't work
 
-Click **"Discover Speakers"** to find all `media_player` entities in Home Assistant. Select which speakers the game should use and choose your **hub speaker** — the main speaker that announces challenges (typically your living room or central speaker).
+Click **"Discover Speakers"** to find all `media_player` entities in Home Assistant. Select which speakers the game should use. The **hub speaker** — the main speaker that announces challenges — is selected on the Launch tab.
 
 **Speaker volume** defaults to 40% — adjust the slider to a comfortable level for your home and save. You can always come back and change this between games.
 
