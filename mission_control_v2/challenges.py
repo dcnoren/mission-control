@@ -31,7 +31,6 @@ class Challenge:
     success_message: str  # {time} placeholder
     targets: list[Target]
     difficulty: Difficulty
-    announce_speaker: str  # always hub speaker
     success_speaker: str
     room: str
     pre_setup: list[PreSetup] = field(default_factory=list)

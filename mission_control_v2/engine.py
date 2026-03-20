@@ -16,7 +16,7 @@ from mutagen.mp3 import MP3
 from challenge_db import ChallengeDB
 from challenges import Challenge, Difficulty, Target
 from image_gen import ImageGenerator
-from themes import ALL_THEMES, Theme
+from themes import ALL_THEMES, Theme, VoiceSettings
 
 logger = logging.getLogger("mission_control.engine")
 
@@ -86,9 +86,12 @@ def _seconds_to_words(time_str: str) -> str:
     return str(n)
 
 
-def _cache_key(text: str, voice_id: str) -> str:
-    """Generate a cache filename from text + voice."""
-    h = hashlib.sha256(f"{voice_id}:{text}".encode()).hexdigest()[:16]
+def _cache_key(text: str, voice_id: str, voice_settings: VoiceSettings | None = None) -> str:
+    """Generate a cache filename from text + voice + settings."""
+    parts = f"{voice_id}:{text}"
+    if voice_settings:
+        parts += f":{voice_settings.stability}:{voice_settings.similarity_boost}:{voice_settings.style}:{voice_settings.speed}"
+    h = hashlib.sha256(parts.encode()).hexdigest()[:16]
     return f"{h}.mp3"
 
 
@@ -252,16 +255,17 @@ class GameEngine:
 
     # --- ElevenLabs Direct TTS ---
 
-    async def generate_tts(self, text: str, voice_id: str) -> str:
+    async def generate_tts(self, text: str, voice_id: str, voice_settings: VoiceSettings | None = None) -> str:
         """Generate TTS audio via ElevenLabs API. Returns cache filename.
         Skips API call if already cached."""
-        filename = _cache_key(text, voice_id)
+        filename = _cache_key(text, voice_id, voice_settings)
         filepath = self.cache_dir / filename
 
         if filepath.exists() and filepath.stat().st_size > 0:
             logger.debug(f"TTS cache hit: {filename}")
             return filename
 
+        vs = voice_settings or VoiceSettings()
         url = f"{ELEVENLABS_API_URL}/{voice_id}"
         headers = {
             "xi-api-key": self.elevenlabs_api_key,
@@ -272,11 +276,12 @@ class GameEngine:
             "text": text,
             "model_id": ELEVENLABS_MODEL,
             "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.6,
-                "style": 0.65,
-                "use_speaker_boost": True,
+                "stability": vs.stability,
+                "similarity_boost": vs.similarity_boost,
+                "style": vs.style,
+                "use_speaker_boost": vs.use_speaker_boost,
             },
+            "speed": vs.speed,
         }
 
         session = await self._get_http_session()
@@ -384,32 +389,60 @@ class GameEngine:
                     return f"{self.server_url}/audio/{filename}"
                 raise RuntimeError(f"Failed to upload audio to HA: {resp.status}")
 
+    async def cleanup_ha_media(self):
+        """Delete all uploaded audio files from HA's media library."""
+        if not self._ha_uploaded:
+            return
+        delete_url = f"{self.ha_url}/api/media_source/local_source/remove"
+        headers = {
+            "Authorization": f"Bearer {self.ha_token}",
+            "Content-Type": "application/json",
+        }
+        session = await self._get_http_session()
+        for filename in list(self._ha_uploaded):
+            media_id = self._media_source_uri(filename)
+            try:
+                async with session.post(delete_url, headers=headers,
+                                        json={"media_content_id": media_id},
+                                        timeout=HA_REQUEST_TIMEOUT) as resp:
+                    if resp.status in (200, 201):
+                        logger.debug(f"Deleted from HA media: {filename}")
+                    else:
+                        logger.warning(f"HA media delete failed for {filename}: {resp.status}")
+            except Exception as e:
+                logger.warning(f"HA media delete error for {filename}: {e}")
+        logger.info(f"Cleaned up {len(self._ha_uploaded)} files from HA media library")
+        self._ha_uploaded.clear()
+
     def _build_clip_list(self, theme: Theme, challenges: list[Challenge],
                          intro_text: str, outro_template: str):
         """Build the full list of clips needed and populate _announcement_options.
-        Returns (critical_clips, remaining_clips) where critical = intro + first challenge."""
-        all_clips: list[tuple[str, str]] = []
+        Returns (critical_clips, remaining_clips) where critical = intro + first challenge.
+        Each clip is a (text, voice_id, voice_settings) triple."""
+        ann_vs = theme.announcer_voice_settings
+        cel_vs = theme.celebration_voice_settings
+        all_clips: list[tuple[str, str, VoiceSettings]] = []
         self._announcement_options: dict[str, list[str]] = {}
 
         # Intro
-        all_clips.append((intro_text, theme.announcer_voice))
+        all_clips.append((intro_text, theme.announcer_voice, ann_vs))
 
         # Per-challenge: build wrapped announcements
         for c in challenges:
             options = []
             wrapped = theme.wrap_announcement(c.announcement)
             options.append(wrapped)
-            all_clips.append((wrapped, theme.announcer_voice))
+            all_clips.append((wrapped, theme.announcer_voice, ann_vs))
             for funny in c.funny_announcements:
                 wrapped_funny = theme.wrap_announcement(funny)
                 options.append(wrapped_funny)
-                all_clips.append((wrapped_funny, theme.announcer_voice))
+                all_clips.append((wrapped_funny, theme.announcer_voice, ann_vs))
             self._announcement_options[c.name] = options
-            all_clips.append((theme.wrap_hint(c.hint), theme.announcer_voice))
+            all_clips.append((theme.wrap_hint(c.hint), theme.announcer_voice, ann_vs))
 
         # Timeout phrases
         for phrase in theme.timeout_phrases:
-            all_clips.append((phrase, theme.announcer_voice))
+            all_clips.append((phrase, theme.announcer_voice, ann_vs))
 
         # Success prefix variants (precache a few common combos)
         for c in challenges:
@@ -417,7 +450,7 @@ class GameEngine:
             for t in spoken_times:
                 spoken = _seconds_to_words(t)
                 success_msg = c.success_message.format(time=spoken)
-                all_clips.append((theme.wrap_success(success_msg), theme.celebration_voice))
+                all_clips.append((theme.wrap_success(success_msg), theme.celebration_voice, cel_vs))
 
         # Outro variants
         for completed in range(0, len(challenges) + 1):
@@ -426,50 +459,51 @@ class GameEngine:
                 all_clips.append((
                     outro_template.format(total_time=spoken_total, rounds=completed),
                     theme.celebration_voice,
+                    cel_vs,
                 ))
 
         # Deduplicate
         seen = set()
         unique_clips = []
-        for text, voice in all_clips:
-            key = f"{voice}:{text}"
+        for text, voice, vs in all_clips:
+            key = _cache_key(text, voice, vs)
             if key not in seen:
                 seen.add(key)
-                unique_clips.append((text, voice))
+                unique_clips.append((text, voice, vs))
 
         # Split: intro + first challenge clips are critical
-        critical_texts = {f"{theme.announcer_voice}:{intro_text}"}
+        critical_keys = {_cache_key(intro_text, theme.announcer_voice, ann_vs)}
         if challenges:
             c = challenges[0]
             for opt in self._announcement_options.get(c.name, []):
-                critical_texts.add(f"{theme.announcer_voice}:{opt}")
-            critical_texts.add(f"{theme.announcer_voice}:{theme.wrap_hint(c.hint)}")
+                critical_keys.add(_cache_key(opt, theme.announcer_voice, ann_vs))
+            critical_keys.add(_cache_key(theme.wrap_hint(c.hint), theme.announcer_voice, ann_vs))
 
-        critical = [(t, v) for t, v in unique_clips if f"{v}:{t}" in critical_texts]
-        remaining = [(t, v) for t, v in unique_clips if f"{v}:{t}" not in critical_texts]
+        critical = [(t, v, vs) for t, v, vs in unique_clips if _cache_key(t, v, vs) in critical_keys]
+        remaining = [(t, v, vs) for t, v, vs in unique_clips if _cache_key(t, v, vs) not in critical_keys]
 
         return critical, remaining
 
-    async def _generate_and_upload(self, clips: list[tuple[str, str]], label: str = ""):
-        """Generate TTS and upload to HA for a list of clips."""
+    async def _generate_and_upload(self, clips: list[tuple[str, str, VoiceSettings]], label: str = ""):
+        """Generate TTS and upload to HA for a list of (text, voice_id, voice_settings) clips."""
         to_generate = []
-        for text, voice in clips:
-            filename = _cache_key(text, voice)
+        for text, voice, vs in clips:
+            filename = _cache_key(text, voice, vs)
             filepath = self.cache_dir / filename
             if not filepath.exists() or filepath.stat().st_size == 0:
-                to_generate.append((text, voice))
+                to_generate.append((text, voice, vs))
 
         if label:
             logger.info(f"Audio {label}: {len(clips)} clips, {len(to_generate)} to generate")
 
         sem = asyncio.Semaphore(3)
 
-        async def gen(text, voice):
+        async def gen(text, voice, vs):
             async with sem:
-                await self.generate_tts(text, voice)
+                await self.generate_tts(text, voice, vs)
 
         if to_generate:
-            await asyncio.gather(*[gen(t, v) for t, v in to_generate])
+            await asyncio.gather(*[gen(t, v, vs) for t, v, vs in to_generate])
 
         # Upload to HA
         upload_sem = asyncio.Semaphore(5)
@@ -481,7 +515,7 @@ class GameEngine:
                 except Exception as e:
                     logger.error(f"Upload failed for {fn}: {e}")
 
-        all_filenames = [_cache_key(t, v) for t, v in clips]
+        all_filenames = [_cache_key(t, v, vs) for t, v, vs in clips]
         await asyncio.gather(*[upload(fn) for fn in all_filenames])
 
     async def precache_critical_audio(self, theme: Theme, challenges: list[Challenge],
@@ -505,7 +539,7 @@ class GameEngine:
         else:
             self._bg_cache_task = None
 
-    async def _background_cache(self, clips: list[tuple[str, str]]):
+    async def _background_cache(self, clips: list[tuple[str, str, VoiceSettings]]):
         """Background task to generate and upload remaining audio clips."""
         try:
             await self._generate_and_upload(clips, label="background")
@@ -537,12 +571,12 @@ class GameEngine:
         """Signal inter-round advancement from the dashboard."""
         self.advance_event.set()
 
-    async def play_cached_audio(self, speaker: str, text: str, voice_id: str):
+    async def play_cached_audio(self, speaker: str, text: str, voice_id: str, voice_settings: VoiceSettings | None = None):
         """Play cached TTS audio on a speaker (Sonos or Apple TV)."""
         resolved = self._resolve_speaker(speaker)
 
         # Generate/fetch audio
-        filename = await self.generate_tts(text, voice_id)
+        filename = await self.generate_tts(text, voice_id, voice_settings)
         filepath = self.cache_dir / filename
 
         # Apple TV path: broadcast audio URL for tvOS app
@@ -763,9 +797,10 @@ class GameEngine:
                 theme = self._current_theme
                 hint_text = theme.wrap_hint(challenge.hint)
                 await self.play_cached_audio(
-                    challenge.announce_speaker,
+                    self.hub_speaker,
                     hint_text,
                     theme.announcer_voice,
+                    theme.announcer_voice_settings,
                 )
 
             await self.broadcast({
@@ -940,7 +975,7 @@ class GameEngine:
                     await asyncio.sleep(0.5)
 
             # Intro TTS
-            await self.play_cached_audio(hub, intro_text, theme.announcer_voice)
+            await self.play_cached_audio(hub, intro_text, theme.announcer_voice, theme.announcer_voice_settings)
 
             await self.broadcast({"type": "game_started", "total_rounds": len(challenges)})
 
@@ -985,8 +1020,8 @@ class GameEngine:
                     announcement = theme.wrap_announcement(challenge.announcement)
 
                 # In Apple TV mode, broadcast audio URL with round_starting for tvOS app
-                if self.appletv_mode and self._resolve_speaker(challenge.announce_speaker) == "appletv":
-                    filename = await self.generate_tts(announcement, theme.announcer_voice)
+                if self.appletv_mode and self._resolve_speaker(self.hub_speaker) == "appletv":
+                    filename = await self.generate_tts(announcement, theme.announcer_voice, theme.announcer_voice_settings)
                     audio_url = f"{self.server_url}/audio/{filename}"
                     audio_path = str(self.cache_dir / filename)
                     duration = _get_mp3_duration(audio_path)
@@ -1000,9 +1035,10 @@ class GameEngine:
                     await asyncio.sleep(duration)
                 else:
                     await self.play_cached_audio(
-                        challenge.announce_speaker,
+                        self.hub_speaker,
                         announcement,
                         theme.announcer_voice,
+                        theme.announcer_voice_settings,
                     )
 
                 # Monitor
@@ -1020,6 +1056,7 @@ class GameEngine:
                         challenge.success_speaker,
                         success_text,
                         theme.celebration_voice,
+                        theme.celebration_voice_settings,
                     )
                     await self.broadcast({"type": "round_complete", **result})
                 elif result["status"] == "skipped":
@@ -1028,9 +1065,10 @@ class GameEngine:
                     total_time += result["time"]
                     timeout_text = theme.pick_timeout()
                     await self.play_cached_audio(
-                        challenge.announce_speaker,
+                        self.hub_speaker,
                         timeout_text,
                         theme.announcer_voice,
+                        theme.announcer_voice_settings,
                     )
                     await self.broadcast({"type": "round_complete", **result})
                 elif result["status"] == "stopped":
@@ -1080,7 +1118,7 @@ class GameEngine:
                 outro_resolved = self._resolve_speaker(self.hub_speaker)
                 if outro_resolved != "appletv":
                     await self.set_volume(outro_resolved, self.speaker_volume)
-                await self.play_cached_audio(self.hub_speaker, outro, theme.celebration_voice)
+                await self.play_cached_audio(self.hub_speaker, outro, theme.celebration_voice, theme.celebration_voice_settings)
 
                 await self.broadcast({
                     "type": "game_finished",
@@ -1107,6 +1145,7 @@ class GameEngine:
                 self._bg_image_task.cancel()
                 self._bg_image_task = None
             await self.restore_states()
+            await self.cleanup_ha_media()
             await self.disconnect_ws()
             await self._close_http_session()
             self.running = False

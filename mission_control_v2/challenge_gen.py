@@ -29,7 +29,6 @@ Generate challenges as a JSON array. Each challenge must have:
 - targets: array of objects with "entity_id" and "target_state" — what must change to complete
 - difficulty: "easy" (same floor as hub/simple), "medium" (different floor or outside), "hard" (multi-target or tricky)
 - room: which room/area this challenge is in
-- announce_speaker: always use the hub_speaker value "{hub_speaker}"
 - success_speaker: the speaker closest to the challenge's room/area
 - pre_setup: array of objects with "domain", "service", "entity_id" — for lights/switches/fans, set them to the opposite state before the challenge starts. For sensors/doors/motion, use empty array []
 - multi_target: true if targets has more than one item, false otherwise
@@ -223,7 +222,7 @@ Available speakers: {json.dumps(speakers, indent=2)}
 Hub speaker: {hub_speaker}
 
 Return ONLY a single valid JSON object (not an array) with the revised challenge. Keep the same schema:
-name, announcement, hint, success_message (with {{time}} placeholder), targets (array of {{entity_id, target_state}}), difficulty (easy/medium/hard), room, announce_speaker (use "{hub_speaker}"), success_speaker, pre_setup (array of {{domain, service, entity_id}} — empty for sensors/doors), multi_target (bool), funny_announcements (array of 2 short alternatives).
+name, announcement, hint, success_message (with {{time}} placeholder), targets (array of {{entity_id, target_state}}), difficulty (easy/medium/hard), room, success_speaker, pre_setup (array of {{domain, service, entity_id}} — empty for sensors/doors), multi_target (bool), funny_announcements (array of 2 short alternatives).
 
 Only use entity_ids from the provided entities list. No markdown fences."""
 

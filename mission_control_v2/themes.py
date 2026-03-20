@@ -3,6 +3,16 @@ import random
 from dataclasses import dataclass, field
 
 
+@dataclass
+class VoiceSettings:
+    """Per-voice ElevenLabs tuning parameters."""
+    stability: float = 0.5
+    similarity_boost: float = 0.6
+    style: float = 0.65
+    use_speaker_boost: bool = True
+    speed: float = 1.0  # ElevenLabs supports 0.25-4.0
+
+
 MISSION_CONTROL_PREFIXES = [
     "New orders from the top...",
     "Agents, your next objective...",
@@ -42,6 +52,8 @@ class Theme:
     hint_prefixes: list[str] = field(default_factory=list)
     timeout_phrases: list[str] = field(default_factory=list)
     intro_music_prompt: str = ""
+    announcer_voice_settings: VoiceSettings = field(default_factory=VoiceSettings)
+    celebration_voice_settings: VoiceSettings = field(default_factory=VoiceSettings)
     intro_scene_prompt: str = ""
     outro_scene_prompt: str = ""
     transition_prompt: str = ""
@@ -131,6 +143,12 @@ class BlueyTheme(Theme):
             slug="bluey",
             announcer_voice="QhzTYkz7VbKNwVeK3URf",  # Sammy (Bluey)
             celebration_voice="hk6wpUusj7FFV03U5LvR",  # Bruce (Dad/Bandit)
+            announcer_voice_settings=VoiceSettings(
+                stability=0.3, similarity_boost=0.75, style=0.9, speed=0.85,
+            ),  # Very expressive, animated, slower for cartoon feel
+            celebration_voice_settings=VoiceSettings(
+                stability=0.4, similarity_boost=0.7, style=0.8, speed=0.9,
+            ),  # Warm dad energy, expressive but steadier
             announcement_prefixes=list(BLUEY_PREFIXES),
             success_prefixes=[
                 "Wackadoo. Nice one, kids.",

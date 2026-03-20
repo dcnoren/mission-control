@@ -206,6 +206,16 @@
                     <button class="btn btn-approve btn-small" id="btn-save-floors">Save Floors</button>
                 </div>
 
+                <div class="section-label" style="margin-top:28px">Cache Management</div>
+                <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:14px 16px;margin-bottom:4px">
+                    <p class="setup-desc" style="margin-top:0">Clear cached audio and images. TTS audio will be regenerated on next game.</p>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <button class="btn btn-secondary btn-small" onclick="App.clearTtsCache()">Clear TTS Audio</button>
+                        <button class="btn btn-deny btn-small" onclick="App.clearAllCache()">Clear All Cached Content</button>
+                        <span class="field-status" id="cache-clear-status"></span>
+                    </div>
+                </div>
+
                 <div class="section-label" style="margin-top:28px">Intro Music</div>
                 <p class="setup-desc">Preview, regenerate, or delete intro music for each theme.</p>
                 <div id="intro-music-list"></div>

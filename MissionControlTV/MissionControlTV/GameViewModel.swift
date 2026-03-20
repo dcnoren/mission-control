@@ -516,12 +516,14 @@ class GameViewModel: ObservableObject {
 
     private func playAudio(_ urlString: String) {
         guard let url = URL(string: urlString) else { return }
-        let item = AVPlayerItem(url: url)
         if player == nil {
             player = AVPlayer()
         }
-        player?.volume = 1.0
+        player?.pause()
+        player?.replaceCurrentItem(with: nil)
+        let item = AVPlayerItem(url: url)
         player?.replaceCurrentItem(with: item)
+        player?.volume = 1.0
         player?.play()
     }
 

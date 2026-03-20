@@ -310,6 +310,35 @@ async def debug_cache():
     }
 
 
+@app.delete("/api/cache/tts")
+async def clear_tts_cache():
+    """Delete all cached TTS audio files (excludes intro music)."""
+    if engine.running:
+        return JSONResponse({"error": "Cannot clear cache while game is running"}, status_code=409)
+    deleted = 0
+    for f in CACHE_DIR.glob("*.mp3"):
+        if not f.name.startswith("intro_music_"):
+            f.unlink()
+            deleted += 1
+    return {"status": "cleared", "deleted": deleted}
+
+
+@app.delete("/api/cache/all")
+async def clear_all_cache():
+    """Delete all cached content: TTS audio, intro music, and scene images."""
+    if engine.running:
+        return JSONResponse({"error": "Cannot clear cache while game is running"}, status_code=409)
+    deleted = 0
+    for f in CACHE_DIR.glob("*.mp3"):
+        f.unlink()
+        deleted += 1
+    for f in IMAGE_DIR.glob("*"):
+        if f.is_file():
+            f.unlink()
+            deleted += 1
+    return {"status": "cleared", "deleted": deleted}
+
+
 # --- Intro Music Management ---
 
 @app.get("/api/intro-music")
@@ -795,7 +824,6 @@ async def preview_challenges(req: PreviewRequest):
             "room": c.room,
             "difficulty": c.difficulty.value,
             "floor": c.floor,
-            "announce_speaker": c.announce_speaker,
             "success_speaker": c.success_speaker,
             "targets": [{"entity_id": t.entity_id, "target_state": t.target_state} for t in c.targets],
             "multi_target": c.multi_target,
@@ -833,7 +861,6 @@ async def shuffle_one_challenge(req: ShuffleRequest):
             "room": pick.room,
             "difficulty": pick.difficulty.value,
             "floor": pick.floor,
-            "announce_speaker": pick.announce_speaker,
             "success_speaker": pick.success_speaker,
             "targets": [{"entity_id": t.entity_id, "target_state": t.target_state} for t in pick.targets],
             "multi_target": pick.multi_target,
@@ -1216,7 +1243,7 @@ async def approve_challenge(req: ApproveRequest):
     if req.approved:
         # Apply any field overrides from the UI before saving
         if req.overrides:
-            for key in ("difficulty", "floor", "announce_speaker", "success_speaker"):
+            for key in ("difficulty", "floor", "success_speaker"):
                 if key in req.overrides:
                     challenge[key] = req.overrides[key]
         challenge_db.add(challenge)
@@ -1381,6 +1408,36 @@ async def clear_blacklist():
     """Clear the entire blacklist."""
     challenge_db.clear_blacklist()
     return {"status": "cleared"}
+
+
+@app.get("/api/elevenlabs/voices")
+async def list_elevenlabs_voices():
+    """Proxy ElevenLabs voices endpoint for browsing available voices."""
+    api_key = config.get("elevenlabs_api_key", "")
+    if not api_key:
+        return JSONResponse({"error": "ElevenLabs API key not configured"}, status_code=400)
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            "https://api.elevenlabs.io/v1/voices",
+            headers={"xi-api-key": api_key},
+        ) as resp:
+            if resp.status != 200:
+                body = await resp.text()
+                return JSONResponse({"error": f"ElevenLabs API error: {body[:200]}"}, status_code=resp.status)
+            data = await resp.json()
+
+    voices = [
+        {
+            "voice_id": v.get("voice_id"),
+            "name": v.get("name"),
+            "category": v.get("category"),
+            "labels": v.get("labels", {}),
+            "preview_url": v.get("preview_url"),
+        }
+        for v in data.get("voices", [])
+    ]
+    return {"voices": voices}
 
 
 @app.websocket("/ws")

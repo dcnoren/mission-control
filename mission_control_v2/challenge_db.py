@@ -35,13 +35,13 @@ class ChallengeDB:
                     success_message TEXT NOT NULL,
                     targets TEXT NOT NULL,
                     difficulty TEXT NOT NULL,
-                    announce_speaker TEXT NOT NULL,
                     success_speaker TEXT NOT NULL,
                     room TEXT NOT NULL,
                     pre_setup TEXT NOT NULL DEFAULT '[]',
                     multi_target INTEGER NOT NULL DEFAULT 0,
                     funny_announcements TEXT NOT NULL DEFAULT '[]',
                     source TEXT NOT NULL DEFAULT 'generated',
+                    floor TEXT NOT NULL DEFAULT '',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
 
@@ -49,15 +49,6 @@ class ChallengeDB:
                     entity_id TEXT PRIMARY KEY
                 );
             """)
-
-            # Migration: add floor column if missing
-            try:
-                conn.execute("ALTER TABLE challenges ADD COLUMN floor TEXT NOT NULL DEFAULT ''")
-                conn.commit()
-            except sqlite3.OperationalError:
-                pass  # column already exists
-
-            conn.commit()
         finally:
             conn.close()
 
@@ -71,7 +62,6 @@ class ChallengeDB:
             "success_message": row["success_message"],
             "targets": json.loads(row["targets"]),
             "difficulty": row["difficulty"],
-            "announce_speaker": row["announce_speaker"],
             "success_speaker": row["success_speaker"],
             "room": row["room"],
             "pre_setup": json.loads(row["pre_setup"]),
@@ -98,9 +88,9 @@ class ChallengeDB:
             conn.execute(
                 """INSERT INTO challenges
                    (id, name, announcement, hint, success_message, targets, difficulty,
-                    announce_speaker, success_speaker, room, pre_setup, multi_target,
+                    success_speaker, room, pre_setup, multi_target,
                     funny_announcements, source, floor)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     challenge_id,
                     challenge.get("name", ""),
@@ -109,7 +99,6 @@ class ChallengeDB:
                     challenge.get("success_message", ""),
                     json.dumps(challenge.get("targets", [])),
                     challenge.get("difficulty", "easy"),
-                    challenge.get("announce_speaker", ""),
                     challenge.get("success_speaker", ""),
                     challenge.get("room", ""),
                     json.dumps(challenge.get("pre_setup", [])),
@@ -129,7 +118,7 @@ class ChallengeDB:
         # Map of allowed field names to column names
         allowed = {
             "name", "announcement", "hint", "success_message", "difficulty",
-            "announce_speaker", "success_speaker", "room", "floor",
+            "success_speaker", "room", "floor",
         }
         # JSON fields need serialization
         json_fields = {"targets", "pre_setup", "funny_announcements"}
@@ -250,7 +239,6 @@ class ChallengeDB:
                         success_message=c["success_message"],
                         targets=targets,
                         difficulty=difficulty,
-                        announce_speaker=c["announce_speaker"],
                         success_speaker=c["success_speaker"],
                         room=c["room"],
                         pre_setup=pre_setup,

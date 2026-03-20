@@ -464,6 +464,13 @@ const App = {
         document.getElementById('input-speaker-volume').addEventListener('input', (e) => {
             document.getElementById('volume-display').textContent = e.target.value + '%';
         });
+        document.getElementById('input-speaker-volume').addEventListener('change', (e) => {
+            fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speaker_volume: parseInt(e.target.value, 10) / 100 }),
+            });
+        });
 
         // Hub speaker auto-save is set up in populateSpeakerDropdowns
 
@@ -854,10 +861,6 @@ const App = {
                         <select class="detail-select" id="sug-floor-${s.id}">${floorOpts}</select>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Announce Speaker</span>
-                        <select class="detail-select" id="sug-announce-spk-${s.id}">${speakerOpts(s.announce_speaker)}</select>
-                    </div>
-                    <div class="detail-row">
                         <span class="detail-label">Success Speaker</span>
                         <select class="detail-select" id="sug-success-spk-${s.id}">${speakerOpts(s.success_speaker)}</select>
                     </div>
@@ -945,8 +948,6 @@ const App = {
         if (diffEl) overrides.difficulty = diffEl.value;
         const floorEl = document.getElementById(`sug-floor-${id}`);
         if (floorEl) overrides.floor = floorEl.value;
-        const announceEl = document.getElementById(`sug-announce-spk-${id}`);
-        if (announceEl) overrides.announce_speaker = announceEl.value;
         const successEl = document.getElementById(`sug-success-spk-${id}`);
         if (successEl) overrides.success_speaker = successEl.value;
 
@@ -1117,10 +1118,6 @@ const App = {
                                 <select class="detail-select" id="floor-${c.id}">${floorOpts(c.floor)}</select>
                             </div>
                             <div class="detail-row">
-                                <span class="detail-label">Announce Speaker</span>
-                                <select class="detail-select" id="announce-spk-${c.id}">${speakerOpts(c.announce_speaker)}</select>
-                            </div>
-                            <div class="detail-row">
                                 <span class="detail-label">Success Speaker</span>
                                 <select class="detail-select" id="success-spk-${c.id}">${speakerOpts(c.success_speaker)}</select>
                             </div>
@@ -1149,7 +1146,6 @@ const App = {
     },
 
     async saveChallengeDetail(id) {
-        const announceSpk = document.getElementById(`announce-spk-${id}`).value;
         const successSpk = document.getElementById(`success-spk-${id}`).value;
         const difficulty = document.getElementById(`difficulty-${id}`).value;
         const floor = document.getElementById(`floor-${id}`).value;
@@ -1159,7 +1155,6 @@ const App = {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    announce_speaker: announceSpk,
                     success_speaker: successSpk,
                     difficulty,
                     floor,
@@ -1287,13 +1282,16 @@ const App = {
     },
 
     playIntroMusic(url, btn) {
+        // Stop current playback if any
+        const wasPlaying = !!this.introAudio;
         if (this.introAudio) {
             this.introAudio.pause();
             this.introAudio = null;
-            document.querySelectorAll('.intro-music-actions .btn-approve').forEach(b => b.textContent = 'Play');
+            // Reset only intro music Play/Stop buttons (not scene image Preview buttons)
+            document.querySelectorAll('#intro-music-list .btn-approve').forEach(b => b.textContent = 'Play');
         }
-        if (btn && btn.textContent === 'Stop') {
-            btn.textContent = 'Play';
+        // If this button was already playing, just stop
+        if (wasPlaying && btn && btn.textContent === 'Play') {
             return;
         }
         this.introAudio = new Audio(url);
@@ -1432,6 +1430,44 @@ const App = {
             this.loadSceneImages();
         } catch (err) {
             console.error('Delete all scene images failed:', err);
+        }
+    },
+
+    // --- Cache Management ---
+
+    async clearTtsCache() {
+        const status = document.getElementById('cache-clear-status');
+        try {
+            const resp = await fetch('/api/cache/tts', { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.error) {
+                if (status) status.textContent = data.error;
+                return;
+            }
+            if (status) status.textContent = `Cleared ${data.deleted} TTS files`;
+            this.loadIntroMusic();
+        } catch (err) {
+            console.error('Clear TTS cache failed:', err);
+            if (status) status.textContent = 'Failed to clear cache';
+        }
+    },
+
+    async clearAllCache() {
+        if (!confirm('This will delete all cached audio (including intro music) and scene images. Continue?')) return;
+        const status = document.getElementById('cache-clear-status');
+        try {
+            const resp = await fetch('/api/cache/all', { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.error) {
+                if (status) status.textContent = data.error;
+                return;
+            }
+            if (status) status.textContent = `Cleared ${data.deleted} files`;
+            this.loadIntroMusic();
+            this.loadSceneImages();
+        } catch (err) {
+            console.error('Clear all cache failed:', err);
+            if (status) status.textContent = 'Failed to clear cache';
         }
     },
 
