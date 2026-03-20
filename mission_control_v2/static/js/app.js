@@ -733,7 +733,6 @@ const App = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     entities: this.fetchedEntities,
-                    speakers: this.fetchedSpeakers,
                     user_prompt: document.getElementById('input-generation-prompt').value || undefined,
                 }),
             });

@@ -1260,15 +1260,17 @@ async def rethink_challenge(req: RethinkRequest):
     challenge = pending_suggestions[req.challenge_id]
     hub_speaker = config.get("hub_speaker", "media_player.hub_speaker")
 
-    # Use cached entities/speakers if available, otherwise fetch
+    # Use cached entities if available, otherwise fetch from HA
     entities = getattr(rethink_challenge, '_cached_entities', None)
-    speakers = getattr(rethink_challenge, '_cached_speakers', None)
     if not entities:
         entities_resp = await get_ha_entities()
         if isinstance(entities_resp, JSONResponse):
             entities = []
         else:
             entities = entities_resp
+
+    # Use allowed speakers from config
+    speakers = config.get("allowed_speakers", [])
     if not speakers:
         speakers_resp = await get_ha_speakers()
         if isinstance(speakers_resp, JSONResponse):
