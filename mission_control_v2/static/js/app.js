@@ -43,7 +43,8 @@ const App = {
                 document.getElementById('input-ha-url').value = config.ha_url;
             }
             if (config.hub_speaker) {
-                document.getElementById('input-hub-speaker').value = config.hub_speaker;
+                const hubEl = document.getElementById('input-hub-speaker-select');
+                if (hubEl) hubEl.value = config.hub_speaker;
             }
             if (config.server_url) {
                 document.getElementById('input-server-url').value = config.server_url;
