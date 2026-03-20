@@ -66,7 +66,7 @@ Theme text (intros, outros, prefixes, hints, timeouts) is editable via the Setti
 
 - **Dev (Mac)**: `cd dev && docker compose up -d` — spins up a local Home Assistant instance with 31 fake devices across 7 rooms, auto-onboards, and starts mission-control on port 8765. HA is at localhost:8123 (login: dev/devdevdev). Fully automated — no manual setup needed. API keys go in `dev/.env`.
 - **Prod**: Build for amd64 and push to GHCR, deploy via docker-compose on your server
-  - Always build with: `docker buildx build --platform linux/amd64 -t ghcr.io/dcnoren/mission-control:latest --push mission_control_v2/`
+  - Always build with: `docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/dcnoren/mission-control:latest --push mission_control_v2/`
 - **tvOS App**: Open `MissionControlTV/MissionControlTV.xcodeproj` in Xcode, run on Apple TV
   - Copy `Config.xcconfig.example` to `Config.xcconfig` and set your Team ID
   - `Config.xcconfig` is gitignored to keep developer credentials out of the repo
