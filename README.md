@@ -81,29 +81,11 @@ We estimate the total cost to fully set up Mission Control (generate challenges,
 
 ### 1. Deploy
 
-Pull the Docker image and configure your Home Assistant URL, access token, and API keys:
-
-```yaml
-services:
-  mission-control:
-    image: ghcr.io/dcnoren/mission-control:latest
-    ports:
-      - "8765:8765"
-    volumes:
-      - mc-data:/app/data
-    environment:
-      - HA_URL=http://homeassistant.local:8123
-      - HA_TOKEN=your_long_lived_access_token
-      - ELEVENLABS_API_KEY=sk_...
-      - OPENROUTER_API_KEY=sk-or-v1-...
-      - SERVER_URL=http://your-docker-host-ip:8765
-    restart: unless-stopped
-
-volumes:
-  mc-data:
-```
+Download the [`docker-compose.yml`](docker-compose.yml), fill in your credentials, and start it:
 
 ```bash
+curl -O https://raw.githubusercontent.com/dcnoren/mission-control/main/docker-compose.yml
+# Edit docker-compose.yml with your HA URL, tokens, and API keys
 docker compose up -d
 ```
 
@@ -195,7 +177,7 @@ All theme intro/outro text, success prefixes, and hint prefixes are editable in 
 
 ### Option 1: Pull from GHCR (recommended)
 
-Use the docker-compose.yml from the [How It Works](#1-deploy) section above.
+Use the [`docker-compose.yml`](docker-compose.yml) in the repo root. See [Deploy](#1-deploy) for instructions.
 
 ### Option 2: Build from source
 

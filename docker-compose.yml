@@ -1,0 +1,17 @@
+services:
+  mission-control:
+    image: ghcr.io/dcnoren/mission-control:latest
+    ports:
+      - "8765:8765"
+    volumes:
+      - mc-data:/app/data
+    environment:
+      - HA_URL=http://homeassistant.local:8123
+      - HA_TOKEN=your_long_lived_access_token
+      - ELEVENLABS_API_KEY=sk_...
+      - OPENROUTER_API_KEY=sk-or-v1-...
+      - SERVER_URL=http://your-docker-host-ip:8765
+    restart: unless-stopped
+
+volumes:
+  mc-data:
