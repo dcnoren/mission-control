@@ -180,6 +180,10 @@ class GameViewModel: ObservableObject {
         appMode = .playing
         setScreen(.waiting("Starting mission..."))
 
+        // Connect WebSocket BEFORE starting the game so we don't miss
+        // early broadcasts (game_starting with intro image, intro music)
+        connectWebSocket()
+
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             Task { @MainActor in
                 if let error = error {
@@ -191,8 +195,6 @@ class GameViewModel: ObservableObject {
                     self?.appMode = .localSetup
                     return
                 }
-                // Connect WebSocket after successful start
-                self?.connectWebSocket()
             }
         }.resume()
     }
