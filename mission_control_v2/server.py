@@ -384,7 +384,7 @@ async def generate_intro_music(theme_slug: str):
         filepath.unlink()
 
     try:
-        result = await engine.generate_intro_music(theme_slug, theme.intro_music_prompt)
+        result = await engine.generate_intro_music(theme_slug, theme.intro_music_prompt, theme.intro_music_variations)
         if result:
             return {"status": "generated", "filename": result, "audio_url": f"/audio/{result}"}
         else:

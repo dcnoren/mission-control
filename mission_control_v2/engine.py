@@ -297,7 +297,7 @@ class GameEngine:
                 logger.error(f"ElevenLabs API error {resp.status}: {body[:200]}")
                 raise RuntimeError(f"ElevenLabs TTS failed: {resp.status}")
 
-    async def generate_intro_music(self, theme_slug: str, prompt: str) -> str:
+    async def generate_intro_music(self, theme_slug: str, prompt: str, variations: list[str] | None = None) -> str:
         """Generate intro music via ElevenLabs Sound Generation API.
         Uses a fixed filename per theme so it's only generated once ever."""
         filename = f"intro_music_{theme_slug}_30s.mp3"
@@ -308,13 +308,11 @@ class GameEngine:
             return filename
 
         # Add random variation so regeneration produces different results
-        variations = [
-            "with building energy", "with a dramatic opening",
-            "starting soft then building", "with punchy percussion",
-            "with sweeping strings", "with an epic brass section",
-            "with a mysterious vibe", "with electronic synth pads",
-            "with a bold fanfare opening", "with rhythmic tension",
-        ]
+        if not variations:
+            variations = [
+                "with building energy", "with a dramatic opening",
+                "starting soft then building", "with punchy percussion",
+            ]
         variation = random.choice(variations)
         varied_prompt = f"{prompt}, {variation}"
         logger.info(f"Music prompt variation: '{variation}'")
@@ -915,7 +913,7 @@ class GameEngine:
             # Generate intro music (only first time per theme, then cached forever)
             music_file = ""
             if theme.intro_music_prompt:
-                music_file = await self.generate_intro_music(theme.slug, theme.intro_music_prompt)
+                music_file = await self.generate_intro_music(theme.slug, theme.intro_music_prompt, theme.intro_music_variations)
 
             # Use pre-cached intro image if available (never block on generation)
             intro_image_url = self._get_cached_image_url(theme.intro_scene_prompt) if theme.intro_scene_prompt else None

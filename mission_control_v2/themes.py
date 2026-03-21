@@ -52,6 +52,7 @@ class Theme:
     hint_prefixes: list[str] = field(default_factory=list)
     timeout_phrases: list[str] = field(default_factory=list)
     intro_music_prompt: str = ""
+    intro_music_variations: list[str] = field(default_factory=list)
     announcer_voice_settings: VoiceSettings = field(default_factory=VoiceSettings)
     celebration_voice_settings: VoiceSettings = field(default_factory=VoiceSettings)
     intro_scene_prompt: str = ""
@@ -116,7 +117,14 @@ class MissionControlTheme(Theme):
                 "Mission failed. Don't worry, agents. There are more assignments ahead.",
                 "We've lost that one, team. Shake it off. Next mission incoming.",
             ],
-            intro_music_prompt="Cinematic spy thriller intro music, tense building orchestral with electronic elements, secret agent briefing scene, 15 seconds, dramatic and exciting, suitable for children",
+            intro_music_prompt="Instrumental upbeat spy mission music for kids, fast tempo, stealthy surf rock guitar with light orchestral brass, bongo drums, comical secret agent briefing, immediate energetic start, family-friendly action",
+            intro_music_variations=[
+                "with a driving spy bassline",
+                "adding a retro synth melody",
+                "with energetic bongo rolls",
+                "featuring a punchy horn section",
+                "with rhythmic electronic tension",
+            ],
             intro_scene_prompt="Cinematic spy headquarters briefing room, agents silhouetted against a giant holographic world map, blue and cyan neon lighting, high-tech screens everywhere, dramatic atmosphere, no text, digital art, 16:9",
             outro_scene_prompt="Triumphant secret agent team celebration, fireworks and confetti against night sky, golden trophy, cinematic lighting, digital art, no text, 16:9",
             transition_prompt="Spy headquarters corridor with blue laser grid security system, moody lighting, cinematic perspective, digital art, no text, 16:9",
@@ -170,7 +178,14 @@ class BlueyTheme(Theme):
                 "We missed that one. But that's ok because we never, ever give up! Right Bingo?",
                 "Dad! We ran out of time! ... It's fine, it's fine. Next one, next one!",
             ],
-            intro_music_prompt="Playful upbeat Australian kids TV show theme music, xylophone and ukulele, bouncy and cheerful like the Bluey cartoon intro, 15 seconds, fun and energetic",
+            intro_music_prompt="Instrumental acoustic kids TV theme, joyful and energetic, cheerful ukulele and bouncy marimba, bright indie pop folk, sunny playground vibe, fast tempo, playful and bouncy",
+            intro_music_variations=[
+                "with joyful whistling",
+                "featuring a playful melodica solo",
+                "with energetic rhythmic handclaps",
+                "adding an upbeat tambourine groove",
+                "with a cheerful glockenspiel melody",
+            ],
             intro_scene_prompt="Bluey and Bingo playing in a colorful Australian backyard with a treehouse, cartoon blue heeler puppies, warm sunny day, Bluey TV show style animation, kookaburras and wombats, no text, 16:9",
             outro_scene_prompt="Bluey and Bingo celebrating with balloons and streamers in the backyard, cartoon blue heeler puppies jumping for joy, golden afternoon light, Bluey TV show style, no text, 16:9",
             transition_prompt="Bluey and Bingo running along a cartoon backyard path, colorful flowers and butterflies, warm sunshine, Bluey TV show style animation, no text, 16:9",
@@ -217,7 +232,14 @@ class SnoopAndSniffyTheme(Theme):
                 "Time's up on that one. Even Sniffy couldn't crack it. Let's move on to the next case.",
                 "The trail went cold. Shake it off, detectives. Snoop and Sniffy have another case for you.",
             ],
-            intro_music_prompt="Mysterious detective investigation music, pizzicato strings and sneaky woodwinds, like a children's mystery cartoon, curious and playful, 15 seconds, building suspense",
+            intro_music_prompt="Instrumental playful detective music, cartoon mystery investigation, tiptoeing pizzicato strings and sneaky comical woodwinds, curious lighthearted suspense, steady plodding rhythm, immediate progression",
+            intro_music_variations=[
+                "with a sneaky walking bassline",
+                "adding a mysterious xylophone riff",
+                "with comical tip-toeing percussion",
+                "featuring a muffled jazz trumpet",
+                "starting very quiet then building curiosity",
+            ],
             intro_scene_prompt="Cozy detective office with magnifying glass, old maps pinned to wall, warm lamplight, mysterious shadows, children's mystery book illustration style, no text, 16:9",
             outro_scene_prompt="Detectives celebrating a solved case, confetti and gold stars, warm cozy lamplight, happy ending, children's mystery illustration, no text, 16:9",
             transition_prompt="Mysterious footprints trail along a foggy path, detective hat and magnifying glass, warm amber tones, children's illustration, no text, 16:9",
