@@ -251,10 +251,19 @@
                 </div>
             </div>
 
-            <div id="game-active-area">
-                <div class="waiting-message">
-                    <div class="spinner"></div>
-                    <div>Waiting for game...</div>
+            <div class="tv-viewport">
+                <div class="game-bg">
+                    <div class="game-bg-gradient"></div>
+                    <div class="game-bg-image" id="game-bg-image"></div>
+                    <div class="game-bg-vignette"></div>
+                    <div class="game-bg-danger" id="game-danger-vignette"></div>
+                </div>
+                <div class="confetti-container" id="confetti-container"></div>
+                <div class="tv-content" id="game-active-area">
+                    <div class="waiting-message">
+                        <div class="spinner"></div>
+                        <div>Waiting for game...</div>
+                    </div>
                 </div>
             </div>
 
@@ -264,6 +273,8 @@
                 <button class="btn btn-secondary" id="btn-skip">Skip Round</button>
                 <button class="btn btn-danger" id="btn-stop">Stop Game</button>
             </div>
+
+            <div class="targets-list" id="targets-list"></div>
         </div>
 
         <!-- Results Screen -->

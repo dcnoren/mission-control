@@ -1,5 +1,26 @@
 // Mission Control - WebSocket Client & UI Logic
 
+const THEME_VISUALS = {
+    mission_control: {
+        primary: '56, 189, 247',
+        glow: '56, 189, 247',
+        gradientStart: '5, 10, 31',
+        gradientEnd: '10, 15, 26',
+    },
+    bluey: {
+        primary: '242, 153, 51',
+        glow: '242, 217, 102',
+        gradientStart: '26, 64, 77',
+        gradientEnd: '13, 38, 77',
+    },
+    snoop_and_sniffy: {
+        primary: '230, 179, 77',
+        glow: '230, 191, 89',
+        gradientStart: '38, 26, 15',
+        gradientEnd: '26, 26, 26',
+    },
+};
+
 const App = {
     ws: null,
     connected: false,
@@ -15,6 +36,7 @@ const App = {
         elapsed: 0,
     },
     selectedTheme: 'mission_control',
+    currentThemeSlug: null,
     appleTVMode: false,
     fetchedEntities: null,
     fetchedSpeakers: null,
@@ -336,11 +358,20 @@ const App = {
                     challenge: null,
                     elapsed: 0,
                 };
+                this.currentThemeSlug = data.theme_slug || this.selectedTheme;
+                this.applyThemeVisuals(this.currentThemeSlug);
+                this.setBackgroundImage(data.intro_image_url || null);
                 this.showScreen('game');
                 this.showWaiting('Starting game...');
                 break;
 
             case 'precaching':
+                if (this.screen !== 'game') {
+                    this.gameState = { running: true, currentRound: 0, totalRounds: 0, completedCount: 0, totalTime: 0, results: [], challenge: null, elapsed: 0 };
+                    this.currentThemeSlug = this.selectedTheme;
+                    this.applyThemeVisuals(this.currentThemeSlug);
+                    this.showScreen('game');
+                }
                 this.showWaiting(data.message || `Caching audio: ${data.cached || 0} cached, ${data.to_generate || '?'} to generate...`);
                 break;
 
@@ -354,6 +385,11 @@ const App = {
 
             case 'game_started':
                 this.gameState.totalRounds = data.total_rounds;
+                if (!this.currentThemeSlug) {
+                    this.currentThemeSlug = this.selectedTheme;
+                    this.applyThemeVisuals(this.currentThemeSlug);
+                }
+                if (this.screen !== 'game') this.showScreen('game');
                 this.showWaiting('Get ready...');
                 break;
 
@@ -362,6 +398,7 @@ const App = {
                 this.gameState.totalRounds = data.total_rounds;
                 this.gameState.challenge = data.challenge;
                 this.gameState.elapsed = 0;
+                this.setBackgroundImage(data.scene_image_url || null);
                 document.getElementById('btn-advance').style.display = 'none';
                 this.renderGameScreen();
                 break;
@@ -381,9 +418,21 @@ const App = {
                 if (data.status === 'completed') {
                     this.gameState.completedCount++;
                     this.gameState.totalTime += data.time;
+                    this.updateScoreBar();
+                    this.showRoundComplete(data.challenge_name, data.time);
+                    this.spawnConfetti();
+                } else {
+                    this.updateScoreBar();
+                    this.showWaiting('Next round coming up...');
                 }
-                this.updateScoreBar();
-                this.showWaiting('Next round coming up...');
+                break;
+
+            case 'finale':
+                if (data.outro_image_url) {
+                    this.setBackgroundImage(data.outro_image_url);
+                }
+                this.showFinale(data.completed, data.total_rounds);
+                this.spawnConfetti();
                 break;
 
             case 'game_finished':
@@ -391,16 +440,21 @@ const App = {
                 this.gameState.results = data.results;
                 this.gameState.totalTime = data.total_time;
                 this.gameState.completedCount = data.completed;
+                this.clearGameVisuals();
                 this.showResults();
                 break;
 
             case 'game_stopped':
                 this.gameState.running = false;
                 this.gameState.results = data.results || [];
+                this.clearGameVisuals();
                 this.showResults();
                 break;
 
             case 'atv_waiting_for_advance':
+                if (data.transition_image_url) {
+                    this.setBackgroundImage(data.transition_image_url);
+                }
                 document.getElementById('btn-advance').style.display = 'block';
                 this.showWaiting('Round complete! Press Next Mission when ready.');
                 break;
@@ -510,6 +564,8 @@ const App = {
                 <div>${message}</div>
             </div>
         `;
+        const targets = document.getElementById('targets-list');
+        if (targets) targets.innerHTML = '';
     },
 
     // --- Game Actions ---
@@ -621,31 +677,36 @@ const App = {
         if (!c) return;
 
         const diffClass = `difficulty-${c.difficulty}`;
-        const targetsHtml = c.targets.map(t => `
+
+        // TV viewport content (matches tvOS layout)
+        const area = document.getElementById('game-active-area');
+        area.innerHTML = `
+            <div class="tv-text-backdrop">
+                <div class="round-label animate-in">Round ${this.gameState.currentRound} of ${this.gameState.totalRounds}</div>
+                <div class="challenge-header">
+                    <div class="challenge-name animate-in glow-pulse">${c.name}</div>
+                    <div class="challenge-meta animate-in">
+                        <span class="room-badge">${c.room}</span>
+                        <span class="difficulty-badge ${diffClass}">${c.difficulty}</span>
+                    </div>
+                </div>
+                <div class="timer-container animate-in">
+                    <div class="timer-display" id="timer-display">0.0</div>
+                    <div class="progress-bar-track">
+                        <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Targets outside TV viewport (HA device hints)
+        const targetsList = document.getElementById('targets-list');
+        targetsList.innerHTML = c.targets.map(t => `
             <div class="target-item">
                 <div class="target-dot" data-entity="${t.entity_id}"></div>
                 <span class="target-entity">${t.entity_id} → ${t.target_state}</span>
             </div>
         `).join('');
-
-        const area = document.getElementById('game-active-area');
-        area.innerHTML = `
-            <div class="round-label">Round ${this.gameState.currentRound} of ${this.gameState.totalRounds}</div>
-            <div class="challenge-header">
-                <div class="challenge-name">${c.name}</div>
-                <div class="challenge-meta">
-                    <span class="room-badge">${c.room}</span>
-                    <span class="difficulty-badge ${diffClass}">${c.difficulty}</span>
-                </div>
-            </div>
-            <div class="timer-container">
-                <div class="timer-display" id="timer-display">0.0</div>
-                <div class="progress-bar-track">
-                    <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
-                </div>
-            </div>
-            <div class="targets-list" id="targets-list">${targetsHtml}</div>
-        `;
 
         this.updateScoreBar();
     },
@@ -671,6 +732,11 @@ const App = {
 
         const pct = Math.min((elapsed / 45) * 100, 100);
         fill.style.width = pct + '%';
+
+        const dangerVignette = document.getElementById('game-danger-vignette');
+        if (dangerVignette) {
+            dangerVignette.classList.toggle('pulse', elapsed > 35);
+        }
     },
 
     updateTargets(targets) {
@@ -688,6 +754,100 @@ const App = {
         document.getElementById('score-total-time').textContent = gs.totalTime.toFixed(1) + 's';
         const avg = gs.completedCount > 0 ? (gs.totalTime / gs.completedCount).toFixed(1) : '0.0';
         document.getElementById('score-avg-time').textContent = avg + 's';
+    },
+
+    // --- Cinematic Visuals ---
+    applyThemeVisuals(slug) {
+        const v = THEME_VISUALS[slug] || THEME_VISUALS.mission_control;
+        const el = document.getElementById('screen-game');
+        el.style.setProperty('--theme-primary', v.primary);
+        el.style.setProperty('--theme-glow', v.glow);
+        el.style.setProperty('--theme-gradient-start', v.gradientStart);
+        el.style.setProperty('--theme-gradient-end', v.gradientEnd);
+    },
+
+    setBackgroundImage(url) {
+        const el = document.getElementById('game-bg-image');
+        if (!el) return;
+        if (url) {
+            el.classList.remove('loaded');
+            el.style.backgroundImage = `url(${url})`;
+            el.style.animation = 'none';
+            el.offsetHeight; // force reflow to restart animation
+            el.style.animation = '';
+            const img = new Image();
+            img.onload = () => el.classList.add('loaded');
+            img.src = url;
+        } else {
+            el.classList.remove('loaded');
+            el.style.backgroundImage = '';
+        }
+    },
+
+    showRoundComplete(name, time) {
+        const area = document.getElementById('game-active-area');
+        area.innerHTML = `
+            <div class="tv-text-backdrop">
+                <div class="round-complete-screen">
+                    <div class="round-complete-check">&#10003;</div>
+                    <div class="round-complete-title">Mission Complete!</div>
+                    <div class="round-complete-name">${name}</div>
+                    <div class="round-complete-time">${time.toFixed(1)}s</div>
+                </div>
+            </div>
+        `;
+        const targets = document.getElementById('targets-list');
+        if (targets) targets.innerHTML = '';
+    },
+
+    showFinale(completed, totalRounds) {
+        const area = document.getElementById('game-active-area');
+        area.innerHTML = `
+            <div class="tv-text-backdrop">
+                <div class="round-complete-screen">
+                    <div class="finale-subtitle">ALL MISSIONS</div>
+                    <div class="finale-title">Complete!</div>
+                    <div class="finale-stats">${completed} of ${totalRounds} missions</div>
+                </div>
+            </div>
+        `;
+        const targets = document.getElementById('targets-list');
+        if (targets) targets.innerHTML = '';
+    },
+
+    spawnConfetti() {
+        const container = document.getElementById('confetti-container');
+        if (!container) return;
+        container.innerHTML = '';
+        const v = THEME_VISUALS[this.currentThemeSlug] || THEME_VISUALS.mission_control;
+        const colors = [
+            `rgb(${v.primary})`,
+            `rgb(${v.glow})`,
+            'rgb(52, 211, 153)',
+            'white',
+        ];
+        for (let i = 0; i < 30; i++) {
+            const piece = document.createElement('div');
+            piece.className = 'confetti-piece';
+            piece.style.left = (20 + Math.random() * 60) + '%';
+            piece.style.top = '10%';
+            piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.animationDelay = (Math.random() * 0.3) + 's';
+            piece.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+            piece.style.width = (4 + Math.random() * 6) + 'px';
+            piece.style.height = (4 + Math.random() * 6) + 'px';
+            container.appendChild(piece);
+        }
+        setTimeout(() => { container.innerHTML = ''; }, 3000);
+    },
+
+    clearGameVisuals() {
+        this.setBackgroundImage(null);
+        this.currentThemeSlug = null;
+        const dangerVignette = document.getElementById('game-danger-vignette');
+        if (dangerVignette) dangerVignette.classList.remove('pulse');
+        const confetti = document.getElementById('confetti-container');
+        if (confetti) confetti.innerHTML = '';
     },
 
     updateConnectionStatus() {

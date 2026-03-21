@@ -49,6 +49,36 @@ class ChallengeDB:
                     entity_id TEXT PRIMARY KEY
                 );
             """)
+            # Migrate: drop stale announce_speaker column if present
+            cols = [r[1] for r in conn.execute("PRAGMA table_info(challenges)").fetchall()]
+            if "announce_speaker" in cols:
+                conn.executescript("""
+                    CREATE TABLE challenges_new (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        announcement TEXT NOT NULL,
+                        hint TEXT NOT NULL,
+                        success_message TEXT NOT NULL,
+                        targets TEXT NOT NULL,
+                        difficulty TEXT NOT NULL,
+                        success_speaker TEXT NOT NULL,
+                        room TEXT NOT NULL,
+                        pre_setup TEXT NOT NULL DEFAULT '[]',
+                        multi_target INTEGER NOT NULL DEFAULT 0,
+                        funny_announcements TEXT NOT NULL DEFAULT '[]',
+                        source TEXT NOT NULL DEFAULT 'generated',
+                        floor TEXT NOT NULL DEFAULT '',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    );
+                    INSERT INTO challenges_new SELECT
+                        id, name, announcement, hint, success_message, targets, difficulty,
+                        success_speaker, room, pre_setup, multi_target,
+                        funny_announcements, source, floor, created_at
+                    FROM challenges;
+                    DROP TABLE challenges;
+                    ALTER TABLE challenges_new RENAME TO challenges;
+                """)
+                logger.info("Migrated challenges table: dropped announce_speaker column")
         finally:
             conn.close()
 

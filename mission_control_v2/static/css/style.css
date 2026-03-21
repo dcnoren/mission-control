@@ -469,19 +469,277 @@ select { cursor: pointer; }
     margin-top: 20px;
 }
 
-/* Game Screen */
+/* Game Screen — 16:9 TV Viewport */
+#screen-game {
+    --theme-primary: 56, 189, 247;
+    --theme-glow: 56, 189, 247;
+    --theme-gradient-start: 5, 10, 31;
+    --theme-gradient-end: 10, 15, 26;
+}
+
+/* TV Viewport — 16:9 cinematic screen */
+.tv-viewport {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Background layers inside viewport */
+.game-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.game-bg-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to bottom,
+        rgb(var(--theme-gradient-start)),
+        rgb(var(--theme-gradient-end))
+    );
+}
+
+.game-bg-image {
+    position: absolute;
+    inset: -20px;
+    background-size: cover;
+    background-position: center;
+    filter: blur(6px);
+    opacity: 0;
+    transition: opacity 1s ease-in;
+}
+
+.game-bg-image.loaded {
+    opacity: 0.55;
+    animation: kenBurns 20s linear forwards;
+}
+
+@keyframes kenBurns {
+    from { transform: scale(1.0); }
+    to { transform: scale(1.05); }
+}
+
+.game-bg-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse at center,
+        transparent 30%,
+        rgba(0, 0, 0, 0.65) 100%
+    );
+}
+
+.game-bg-danger {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse at center,
+        transparent 40%,
+        rgba(248, 113, 113, 0.2) 100%
+    );
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+}
+
+.game-bg-danger.pulse {
+    animation: dangerVignettePulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes dangerVignettePulse {
+    from { opacity: 0.1; }
+    to { opacity: 0.25; }
+}
+
+/* TV content layer — centered like tvOS */
+.tv-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    padding: 6% 8%;
+}
+
+/* Text backdrop — matches tvOS TextBackdrop component */
+.tv-text-backdrop {
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: clamp(12px, 2vw, 24px);
+    padding: clamp(16px, 3.5vw, 48px);
+    text-align: center;
+    width: 100%;
+    max-width: 90%;
+}
+
+/* Confetti container */
+.confetti-container {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 1px;
+    animation: confettiFall 2s ease-out forwards;
+}
+
+@keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(80vh) rotate(720deg); opacity: 0; }
+}
+
+/* === TV Content Typography (scaled to viewport) === */
+
+/* Staggered entrance animations */
+.round-label.animate-in {
+    animation: fadeSlideDown 0.4s ease-out both;
+}
+
+.challenge-name.animate-in {
+    animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+
+.challenge-meta.animate-in {
+    animation: fadeSlideUp 0.4s ease-out 0.35s both;
+}
+
+.timer-container.animate-in {
+    animation: fadeIn 0.3s ease-out 0.5s both;
+}
+
+@keyframes fadeSlideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Challenge name glow pulse */
+.challenge-name.glow-pulse {
+    animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both,
+               glowPulse 2s ease-in-out 0.65s infinite alternate;
+}
+
+@keyframes glowPulse {
+    from { text-shadow: 0 0 20px rgba(var(--theme-glow), 0.15); }
+    to { text-shadow: 0 0 30px rgba(var(--theme-glow), 0.4); }
+}
+
+/* Round complete celebration (inside TV viewport) */
+.round-complete-screen {
+    text-align: center;
+    width: 100%;
+}
+
+.round-complete-check {
+    font-size: clamp(2rem, 5vw, 4rem);
+    color: var(--success);
+    animation: checkPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-shadow: 0 0 20px rgba(52, 211, 153, 0.4);
+}
+
+.round-complete-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.2rem, 3vw, 2.2rem);
+    font-weight: 800;
+    color: white;
+    margin-top: clamp(8px, 1.5vw, 16px);
+    animation: fadeSlideUp 0.5s ease-out 0.3s both;
+}
+
+.round-complete-name {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+    color: var(--text-secondary);
+    margin-top: clamp(4px, 1vw, 10px);
+    animation: fadeSlideUp 0.4s ease-out 0.4s both;
+}
+
+.round-complete-time {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(1.8rem, 5vw, 3.5rem);
+    font-weight: 700;
+    color: rgb(var(--theme-primary));
+    text-shadow: 0 0 20px rgba(var(--theme-primary), 0.3);
+    margin-top: clamp(8px, 1.5vw, 16px);
+    animation: scaleIn 0.5s ease-out 0.5s both;
+}
+
+@keyframes checkPop {
+    0% { transform: scale(0) rotate(-30deg); opacity: 0; }
+    70% { transform: scale(1.2) rotate(5deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* Finale screen (inside TV viewport) */
+.finale-subtitle {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(0.6rem, 1.2vw, 0.85rem);
+    font-weight: 700;
+    color: rgba(var(--theme-primary), 0.7);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    animation: fadeSlideDown 0.6s ease-out both;
+}
+
+.finale-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.8rem, 5vw, 3.5rem);
+    font-weight: 900;
+    color: white;
+    text-shadow: 0 0 30px rgba(var(--theme-glow), 0.3);
+    margin-top: clamp(4px, 1vw, 10px);
+    animation: scaleIn 0.8s ease-out 0.3s both;
+}
+
+.finale-stats {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(0.9rem, 1.8vw, 1.3rem);
+    color: var(--text-secondary);
+    margin-top: clamp(8px, 1.5vw, 16px);
+    animation: fadeSlideUp 0.6s ease-out 0.5s both;
+}
+
+/* Score bar — outside TV viewport, standard card styling */
 .score-bar {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
 }
 
 .score-item {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 16px;
+    padding: 14px 12px;
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -517,55 +775,51 @@ select { cursor: pointer; }
 
 .round-label {
     text-align: center;
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-    letter-spacing: 0.06em;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.6rem, 1.2vw, 0.85rem);
+    font-weight: 700;
+    color: rgba(var(--theme-primary), 0.6);
+    margin-bottom: clamp(4px, 1vw, 12px);
+    letter-spacing: 0.25em;
     text-transform: uppercase;
 }
 
 .challenge-header {
     text-align: center;
-    margin-bottom: 20px;
-    animation: slideUp 0.5s ease-out;
-}
-
-@keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    margin-bottom: clamp(8px, 2vw, 20px);
 }
 
 .challenge-name {
     font-family: 'Outfit', sans-serif;
-    font-size: 1.6rem;
+    font-size: clamp(1.4rem, 4vw, 3rem);
     font-weight: 800;
-    margin-bottom: 10px;
+    margin-bottom: clamp(6px, 1vw, 12px);
     letter-spacing: -0.01em;
+    color: white;
+    text-shadow: 0 4px 20px rgba(var(--theme-glow), 0.3);
 }
 
 .challenge-meta {
     display: flex;
     justify-content: center;
-    gap: 12px;
+    gap: clamp(8px, 1vw, 14px);
     align-items: center;
 }
 
 .room-badge {
-    font-size: 0.85rem;
+    font-size: clamp(0.75rem, 1.5vw, 1.2rem);
     color: var(--text-secondary);
     font-weight: 500;
 }
 
 .difficulty-badge {
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.68rem;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.55rem, 0.9vw, 0.72rem);
     font-weight: 700;
-    padding: 4px 12px;
+    padding: clamp(3px, 0.5vw, 8px) clamp(8px, 1.5vw, 24px);
     border-radius: 20px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.15em;
 }
 
 .difficulty-easy {
@@ -589,28 +843,28 @@ select { cursor: pointer; }
 /* Timer */
 .timer-container {
     text-align: center;
-    margin: 28px 0;
+    margin: clamp(12px, 2vw, 28px) 0;
 }
 
 .timer-display {
     font-family: 'Space Mono', monospace;
-    font-size: 5rem;
+    font-size: clamp(3rem, 10vw, 7rem);
     font-weight: 700;
-    color: var(--accent);
+    color: rgb(var(--theme-primary));
     line-height: 1;
-    margin-bottom: 16px;
+    margin-bottom: clamp(8px, 1.5vw, 16px);
     transition: color 0.4s ease, text-shadow 0.4s ease;
-    text-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
+    text-shadow: 0 0 40px rgba(var(--theme-glow), 0.3);
 }
 
 .timer-display.warning {
     color: var(--warning);
-    text-shadow: 0 0 30px rgba(251, 191, 36, 0.3);
+    text-shadow: 0 0 40px rgba(251, 191, 36, 0.3);
 }
 
 .timer-display.danger {
     color: var(--danger);
-    text-shadow: 0 0 30px rgba(248, 113, 113, 0.4);
+    text-shadow: 0 0 40px rgba(248, 113, 113, 0.4);
     animation: timerPulse 0.8s ease-in-out infinite;
 }
 
@@ -620,21 +874,20 @@ select { cursor: pointer; }
 }
 
 .progress-bar-track {
-    height: 6px;
-    background: var(--bg-card);
-    border-radius: 3px;
+    height: clamp(4px, 0.6vw, 8px);
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
     overflow: hidden;
     margin: 0 auto;
-    max-width: 420px;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+    max-width: 60%;
 }
 
 .progress-bar-fill {
     height: 100%;
-    background: var(--accent);
-    border-radius: 3px;
+    background: rgb(var(--theme-primary));
+    border-radius: 4px;
     transition: width 0.3s, background-color 0.4s;
-    box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+    box-shadow: 0 0 8px rgba(var(--theme-glow), 0.4);
 }
 
 .progress-bar-fill.warning {
@@ -647,13 +900,13 @@ select { cursor: pointer; }
     box-shadow: 0 0 8px rgba(248, 113, 113, 0.4);
 }
 
-/* Targets */
+/* Targets — outside TV viewport, below buttons */
 .targets-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    margin: 20px 0;
-    padding: 0 20px;
+    margin: 12px 0 0 0;
+    padding: 0;
 }
 
 .target-item {
@@ -694,12 +947,12 @@ select { cursor: pointer; }
     color: var(--text-secondary);
 }
 
-/* Waiting message */
+/* Waiting message — inside TV viewport */
 .waiting-message {
     text-align: center;
-    padding: 48px 20px;
-    color: var(--text-secondary);
-    font-size: 1.05rem;
+    padding: 20px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: clamp(0.85rem, 1.5vw, 1.1rem);
     font-weight: 500;
 }
 
@@ -1697,11 +1950,9 @@ select { cursor: pointer; }
     .container { padding: 16px; }
     .theme-grid { grid-template-columns: 1fr; }
     .form-row { grid-template-columns: 1fr; }
-    .timer-display { font-size: 3.5rem; }
     .score-bar { grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .score-value { font-size: 1.2rem; }
     .score-item { padding: 12px 8px; }
     .btn-row { grid-template-columns: 1fr; }
-    .challenge-name { font-size: 1.3rem; }
     h1 { font-size: 1.8rem; }
 }
