@@ -214,7 +214,10 @@ const App = {
                 const status = document.getElementById('speaker-status');
                 status.textContent = `Saved ${allowed.length} speakers`;
                 setTimeout(() => status.textContent = '', 2000);
+                this.allowedSpeakers = allowed;
                 this.populateSpeakerDropdowns();
+                this.renderFloorConfig();
+                this.renderFloorCheckboxes();
             }
         } catch (err) {
             console.error('Save speakers failed:', err);
