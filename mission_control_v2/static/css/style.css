@@ -850,11 +850,16 @@ select { cursor: pointer; }
     font-family: 'Space Mono', monospace;
     font-size: clamp(3rem, 10vw, 7rem);
     font-weight: 700;
-    color: rgb(var(--theme-primary));
+    color: var(--success);
     line-height: 1;
     margin-bottom: clamp(8px, 1.5vw, 16px);
     transition: color 0.4s ease, text-shadow 0.4s ease;
-    text-shadow: 0 0 40px rgba(var(--theme-glow), 0.3);
+    text-shadow: 0 0 40px rgba(52, 211, 153, 0.3);
+}
+
+.timer-display.safe {
+    color: var(--success);
+    text-shadow: 0 0 40px rgba(52, 211, 153, 0.3);
 }
 
 .timer-display.warning {
@@ -884,10 +889,15 @@ select { cursor: pointer; }
 
 .progress-bar-fill {
     height: 100%;
-    background: rgb(var(--theme-primary));
+    background: var(--success);
     border-radius: 4px;
     transition: width 0.3s, background-color 0.4s;
-    box-shadow: 0 0 8px rgba(var(--theme-glow), 0.4);
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+}
+
+.progress-bar-fill.safe {
+    background: var(--success);
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
 }
 
 .progress-bar-fill.warning {

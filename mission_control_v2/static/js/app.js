@@ -380,7 +380,7 @@ const App = {
                 break;
 
             case 'precaching_done':
-                this.showWaiting('Audio ready. Get ready...');
+                this.showWaiting('Game starting...');
                 break;
 
             case 'game_started':
@@ -390,7 +390,7 @@ const App = {
                     this.applyThemeVisuals(this.currentThemeSlug);
                 }
                 if (this.screen !== 'game') this.showScreen('game');
-                this.showWaiting('Get ready...');
+                this.showWaiting('Here we go!');
                 break;
 
             case 'round_starting':
@@ -691,7 +691,7 @@ const App = {
                     </div>
                 </div>
                 <div class="timer-container animate-in">
-                    <div class="timer-display" id="timer-display">0.0</div>
+                    <div class="timer-display" id="timer-display">0</div>
                     <div class="progress-bar-track">
                         <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
                     </div>
@@ -717,17 +717,20 @@ const App = {
         if (!el || !fill) return;
 
         const elapsed = this.gameState.elapsed;
-        el.textContent = elapsed.toFixed(1);
+        el.textContent = Math.round(elapsed);
 
-        // Color coding
+        // Color coding: green 0-15s, yellow 15-30s, red 30s+
         el.className = 'timer-display';
         fill.className = 'progress-bar-fill';
-        if (elapsed > 35) {
+        if (elapsed > 30) {
             el.classList.add('danger');
             fill.classList.add('danger');
-        } else if (elapsed > 25) {
+        } else if (elapsed > 15) {
             el.classList.add('warning');
             fill.classList.add('warning');
+        } else {
+            el.classList.add('safe');
+            fill.classList.add('safe');
         }
 
         const pct = Math.min((elapsed / 45) * 100, 100);
@@ -735,7 +738,7 @@ const App = {
 
         const dangerVignette = document.getElementById('game-danger-vignette');
         if (dangerVignette) {
-            dangerVignette.classList.toggle('pulse', elapsed > 35);
+            dangerVignette.classList.toggle('pulse', elapsed > 30);
         }
     },
 
@@ -751,8 +754,8 @@ const App = {
     updateScoreBar() {
         const gs = this.gameState;
         document.getElementById('score-completed').textContent = gs.completedCount;
-        document.getElementById('score-total-time').textContent = gs.totalTime.toFixed(1) + 's';
-        const avg = gs.completedCount > 0 ? (gs.totalTime / gs.completedCount).toFixed(1) : '0.0';
+        document.getElementById('score-total-time').textContent = Math.round(gs.totalTime) + 's';
+        const avg = gs.completedCount > 0 ? Math.round(gs.totalTime / gs.completedCount) : '0';
         document.getElementById('score-avg-time').textContent = avg + 's';
     },
 
@@ -792,7 +795,7 @@ const App = {
                     <div class="round-complete-check">&#10003;</div>
                     <div class="round-complete-title">Mission Complete!</div>
                     <div class="round-complete-name">${name}</div>
-                    <div class="round-complete-time">${time.toFixed(1)}s</div>
+                    <div class="round-complete-time">${Math.round(time)}s</div>
                 </div>
             </div>
         `;
@@ -2091,7 +2094,7 @@ const App = {
             .reduce((sum, r) => sum + r.time, 0);
 
         document.getElementById('results-summary').textContent =
-            `${completed} completed in ${totalTime.toFixed(1)}s`;
+            `${completed} completed in ${Math.round(totalTime)}s`;
 
         const tbody = document.getElementById('results-tbody');
         tbody.innerHTML = gs.results.map(r => {

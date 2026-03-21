@@ -540,27 +540,27 @@ struct TimerView: View {
     @State private var vignettePulse = false
 
     private var timerColor: Color {
-        if elapsed > 35 { return mcDanger }
-        if elapsed > 25 { return mcWarning }
-        return vm.themeVisuals.primary
+        if elapsed > 30 { return mcDanger }
+        if elapsed > 15 { return mcWarning }
+        return mcSuccess
     }
 
     private var glowOpacity: Double {
-        if elapsed > 35 { return 0.5 }
-        if elapsed > 25 { return 0.35 }
+        if elapsed > 30 { return 0.5 }
+        if elapsed > 15 { return 0.35 }
         return 0.2
     }
 
     private var glowRadius: CGFloat {
-        if elapsed > 35 { return 60 }
-        if elapsed > 25 { return 50 }
+        if elapsed > 30 { return 60 }
+        if elapsed > 15 { return 50 }
         return 40
     }
 
     var body: some View {
         ZStack {
             // Red vignette at high urgency
-            if elapsed > 35 {
+            if elapsed > 30 {
                 RadialGradient(
                     colors: [.clear, mcDanger.opacity(vignettePulse ? 0.25 : 0.10)],
                     center: .center,
@@ -587,7 +587,7 @@ struct TimerView: View {
                     .font(.title3)
                     .foregroundColor(.gray)
 
-                Text(String(format: "%.1f", elapsed))
+                Text(String(format: "%.0f", elapsed))
                     .font(.system(size: 160, weight: .heavy, design: .monospaced))
                     .foregroundColor(timerColor)
                     .shadow(color: timerColor.opacity(glowOpacity), radius: glowRadius, y: 0)
@@ -610,7 +610,7 @@ struct TimerView: View {
                             Circle()
                                 .fill(timerColor)
                                 .frame(width: 14, height: 14)
-                                .shadow(color: timerColor.opacity(0.8), radius: elapsed > 25 ? 12 : 6)
+                                .shadow(color: timerColor.opacity(0.8), radius: elapsed > 15 ? 12 : 6)
                                 .offset(x: 3)
                         }
                         .frame(width: geo.size.width * min(elapsed / 45.0, 1.0), alignment: .leading)
@@ -685,7 +685,7 @@ struct RoundCompleteView: View {
                     .foregroundColor(.gray)
                     .opacity(showText ? 1 : 0)
 
-                Text(String(format: "%.1fs", time))
+                Text("\(Int(time))s")
                     .font(.system(size: 68, weight: .heavy, design: .monospaced))
                     .foregroundColor(vm.themeVisuals.primary)
                     .shadow(color: vm.themeVisuals.primary.opacity(0.3), radius: 20)
@@ -841,7 +841,7 @@ struct ResultsView: View {
                     .opacity(showContent ? 1 : 0)
                     .scaleEffect(showContent ? 1 : 0.9)
 
-                Text("\(results.completed) of \(results.totalRounds) completed in \(String(format: "%.1f", results.totalTime))s")
+                Text("\(results.completed) of \(results.totalRounds) completed in \(Int(results.totalTime))s")
                     .font(.title2.weight(.semibold))
                     .foregroundColor(.white)
                     .opacity(showContent ? 1 : 0)
@@ -859,7 +859,7 @@ struct ResultsView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .foregroundColor(.white)
 
-                            Text(String(format: "%.1fs", r.time))
+                            Text("\(Int(r.time))s")
                                 .font(.system(.body, design: .monospaced))
                                 .frame(width: 100, alignment: .trailing)
                                 .foregroundColor(.gray)

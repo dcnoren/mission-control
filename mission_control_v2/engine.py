@@ -783,10 +783,10 @@ class GameEngine:
         while elapsed < ROUND_TIMEOUT:
             if self.skip_requested:
                 self.skip_requested = False
-                return {"status": "skipped", "time": round(elapsed, 1)}
+                return {"status": "skipped", "time": round(elapsed)}
 
             if self.stop_requested:
-                return {"status": "stopped", "time": round(elapsed, 1)}
+                return {"status": "stopped", "time": round(elapsed)}
 
             elapsed = time.time() - start_time
 
@@ -794,16 +794,19 @@ class GameEngine:
                 hint_sent = True
                 theme = self._current_theme
                 hint_text = theme.wrap_hint(challenge.hint)
+                hint_start = time.time()
                 await self.play_cached_audio(
                     self.hub_speaker,
                     hint_text,
                     theme.announcer_voice,
                     theme.announcer_voice_settings,
                 )
+                # Pause timer during hint playback so it doesn't jump forward
+                start_time += time.time() - hint_start
 
             await self.broadcast({
                 "type": "timer_tick",
-                "elapsed": round(elapsed, 1),
+                "elapsed": round(elapsed),
                 "timeout": ROUND_TIMEOUT,
             })
 
@@ -842,7 +845,7 @@ class GameEngine:
                         })
 
                         if not targets_remaining:
-                            completion_time = round(time.time() - start_time, 1)
+                            completion_time = round(time.time() - start_time)
                             return {"status": "completed", "time": completion_time}
 
         return {"status": "timeout", "time": ROUND_TIMEOUT}
@@ -1097,7 +1100,7 @@ class GameEngine:
             # Finale
             if not self.stop_requested:
                 completed_count = sum(1 for r in self.results if r["status"] == "completed")
-                total_time_rounded = round(total_time, 1)
+                total_time_rounded = round(total_time)
 
                 # Notify tvOS to show finale screen while outro TTS plays
                 outro_image_url = self._get_cached_image_url(theme.outro_scene_prompt) if theme.outro_scene_prompt else None
@@ -1178,7 +1181,7 @@ class GameEngine:
             "total_rounds": self.total_rounds,
             "results": self.results,
             "completed_count": completed,
-            "total_time": round(total_time, 1),
+            "total_time": round(total_time),
         }
 
     def request_skip(self):
