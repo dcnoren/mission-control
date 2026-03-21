@@ -25,7 +25,7 @@ A cooperative smart home challenge game for kids. Players race around the house 
 
 - Anyone without Home Assistant — this is deeply integrated with HA's WebSocket and REST APIs
 - Anyone expecting a polished consumer product — this is a family hobby project
-- Anyone without speakers registered as `media_player` entities in HA — the game needs speakers to announce challenges (or use Apple TV mode to play audio through your TV instead)
+- Anyone without speakers registered as `media_player` entities in HA — speakers provide the best experience, though Device Audio mode can play all audio through the browser and Apple TV mode plays through your TV
 
 ## No Pre-Built Media
 
@@ -123,13 +123,21 @@ Switch to the **Challenges** tab:
 
 ![Game in progress](docs/screenshots/game-active.png)
 
-Back on the main tab, pick a theme, set the number of rounds and difficulty filter, then hit **"Launch Mission."** The game:
+Back on the main tab, pick a theme, set the number of rounds and difficulty filter, then choose a launch mode:
+
+- **Launch Mission** — plays audio on your Home Assistant speakers (hub speaker for announcements, room speakers for success messages)
+- **Launch (Device Audio)** — plays all audio through the web browser instead of network speakers. Great for tablets or laptops — no speakers required, no Home Assistant audio setup needed.
+- **Launch (Apple TV)** — hub audio plays through the tvOS companion app, room speakers still handle success messages (see below)
+
+The game:
 
 1. Plays themed intro music while caching audio in the background
-2. Announces each challenge on the hub speaker
+2. Announces each challenge on the hub speaker (or browser/TV depending on mode)
 3. Monitors Home Assistant in real-time for challenge completion (45-second timeout, hint at 30 seconds)
 4. Plays a success message on the room's speaker when kids complete a task
 5. Wraps up with a finale and restores all devices to their original states
+
+> **Audio in Home Assistant:** When using network speakers, Mission Control temporarily uploads audio files to Home Assistant's media library for playback. All uploaded files are automatically cleaned up when a game ends. Device Audio mode does not upload anything to Home Assistant.
 
 ### 5. Apple TV Companion (Optional)
 
@@ -150,7 +158,7 @@ For a more immersive experience, build and deploy the tvOS companion app to disp
 **Two ways to play:**
 
 - **Launch from Apple TV** — start a game directly from the Siri Remote. Quick and simple.
-- **Launch from Web UI (recommended)** — the web dashboard gives you more control over theme, rounds, difficulty, and challenge selection. On the Apple TV, select **"Subscribe"** first so it listens for the game, then launch from the web dashboard using **"Launch Mission (Apple TV)."** The Apple TV will automatically pick up the game and display mission cards.
+- **Launch from Web UI (recommended)** — the web dashboard gives you more control over theme, rounds, difficulty, and challenge selection. On the Apple TV, select **"Subscribe"** first so it listens for the game, then launch from the web dashboard using **"Launch (Apple TV)."** The Apple TV will automatically pick up the game and display mission cards.
 
 In Apple TV mode, hub audio (announcements, intros, outros) plays through the TV, while room speakers still handle success messages. The tvOS app displays themed mission cards, timers, and results.
 
@@ -167,7 +175,7 @@ All theme intro/outro text, success prefixes, and hint prefixes are editable in 
 ## Requirements
 
 - [Home Assistant](https://www.home-assistant.io/) with smart devices across rooms
-- Speakers registered as `media_player` entities in HA (Sonos, Google Home, Echo, or any HA-compatible speaker) — or an Apple TV for audio-through-TV mode
+- Speakers registered as `media_player` entities in HA (Sonos, Google Home, Echo, or any HA-compatible speaker) for the best experience — or use Device Audio mode to play through any browser, or Apple TV mode for TV audio
 - [ElevenLabs](https://elevenlabs.io/) API key — for voice and music generation
 - [OpenRouter](https://openrouter.ai/) API key — for LLM-powered challenge generation
 - A Home Assistant [long-lived access token](https://www.home-assistant.io/docs/authentication/#your-account-profile)
@@ -199,12 +207,12 @@ All settings can be configured via environment variables or through the web UI. 
 | HA Token | `HA_TOKEN` | Long-lived access token from HA |
 | ElevenLabs Key | `ELEVENLABS_API_KEY` | For voice and music generation |
 | OpenRouter Key | `OPENROUTER_API_KEY` | For LLM challenge generation |
-| Server URL | `SERVER_URL` | LAN IP of this machine + port — needed for speakers to fetch audio files |
+| Server URL | `SERVER_URL` | LAN IP of this machine + port — needed for speakers, Apple TV, and Device Audio to fetch audio files |
 | Speaker Volume | UI only | Global volume for all game audio on speakers (default 40%) |
 
 ## Tips
 
-- **Test mode**: Select a single test speaker to route all audio to one speaker while testing
+- **Device Audio mode**: Use "Launch (Device Audio)" to play all audio through your browser — no speakers needed, great for quick testing or tablet play
 - **Audio caching**: Generated audio is cached permanently. First game takes longer; subsequent games with the same challenges are near-instant.
 - **Challenge editing**: You can customize any challenge text and the LLM can regenerate individual fields
 - **Multiple games**: Once challenges are generated, you can play as many games as you want without regenerating

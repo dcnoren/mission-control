@@ -328,9 +328,6 @@ select { cursor: pointer; }
     flex-shrink: 0;
 }
 
-/* Test mode toggle */
-.test-mode-row { margin-bottom: 20px; }
-
 .toggle-label {
     display: flex;
     align-items: center;
@@ -1071,7 +1068,7 @@ select { cursor: pointer; }
     justify-content: center;
     gap: 8px;
     padding: 13px 24px;
-    border: 2px solid #a855f7;
+    border: 1.5px solid rgba(168, 85, 247, 0.5);
     border-radius: 10px;
     font-family: 'Outfit', sans-serif;
     font-size: 1rem;
@@ -1079,14 +1076,14 @@ select { cursor: pointer; }
     cursor: pointer;
     transition: all 0.25s ease;
     width: 100%;
-    background: rgba(168, 85, 247, 0.08);
+    background: rgba(168, 85, 247, 0.06);
     color: #c084fc;
-    margin-top: 10px;
 }
 
 .btn-atv:hover {
-    background: rgba(168, 85, 247, 0.18);
-    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.2);
+    background: rgba(168, 85, 247, 0.14);
+    border-color: #a855f7;
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.15);
     transform: translateY(-1px);
 }
 
@@ -1094,6 +1091,71 @@ select { cursor: pointer; }
     opacity: 0.4;
     cursor: not-allowed;
     transform: none;
+}
+
+/* Device Audio launch button */
+.btn-local {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 24px;
+    border: 1.5px solid rgba(52, 211, 153, 0.5);
+    border-radius: 10px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    width: 100%;
+    background: rgba(52, 211, 153, 0.06);
+    color: var(--success);
+}
+
+.btn-local:hover {
+    background: rgba(52, 211, 153, 0.14);
+    border-color: var(--success);
+    box-shadow: 0 4px 20px rgba(52, 211, 153, 0.15);
+    transform: translateY(-1px);
+}
+
+.btn-local:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* In-game volume control */
+.game-volume-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    margin-top: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.game-volume-bar label {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.game-volume-bar input[type="range"] {
+    flex: 1;
+    max-width: 300px;
+}
+
+.game-volume-bar span {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    min-width: 36px;
+    text-align: right;
 }
 
 /* Next Mission advance button */
@@ -1142,16 +1204,17 @@ select { cursor: pointer; }
 /* Challenge DB Summary */
 .challenge-db-summary {
     text-align: center;
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--accent);
-    margin-bottom: 14px;
-    padding: 10px 16px;
-    background: rgba(56, 189, 248, 0.04);
-    border: 1px solid rgba(56, 189, 248, 0.12);
-    border-radius: 10px;
-    letter-spacing: 0.02em;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    margin-top: 10px;
+    margin-bottom: 12px;
+    padding: 7px 14px;
+    background: rgba(56, 189, 248, 0.03);
+    border: 1px solid rgba(56, 189, 248, 0.08);
+    border-radius: 8px;
+    letter-spacing: 0.03em;
 }
 
 .challenge-db-summary:empty { display: none; }
@@ -1633,6 +1696,48 @@ select { cursor: pointer; }
     margin-bottom: 4px;
 }
 
+/* Launch row — three buttons side by side */
+.launch-row {
+    display: flex;
+    gap: 8px;
+}
+
+.launch-row .launch-split-btn {
+    flex: 1;
+    margin-top: 0;
+}
+
+.launch-row .launch-main {
+    font-size: 0.82rem;
+    padding: 12px 10px;
+    letter-spacing: 0.01em;
+}
+
+.launch-row .btn-primary.launch-main {
+    background: rgba(56, 189, 248, 0.08);
+    color: var(--accent);
+    border: 1.5px solid rgba(56, 189, 248, 0.5);
+    box-shadow: none;
+}
+
+.launch-row .btn-primary.launch-main:hover {
+    background: rgba(56, 189, 248, 0.16);
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(56, 189, 248, 0.15);
+}
+
+.launch-row .btn-primary.launch-dropdown {
+    background: rgba(56, 189, 248, 0.08);
+    border: 1.5px solid rgba(56, 189, 248, 0.5);
+    border-left: 1.5px solid rgba(56, 189, 248, 0.25);
+    color: var(--accent);
+}
+
+.launch-row .launch-dropdown {
+    width: 34px;
+    min-width: 34px;
+}
+
 /* Split launch button */
 .launch-split-btn {
     display: flex;
@@ -1649,19 +1754,19 @@ select { cursor: pointer; }
     width: 44px;
     border-top-left-radius: 0;
     border-bottom-left-radius: 0;
-    border-left: 2px solid rgba(0,0,0,0.2);
-    font-size: 0.75rem;
+    border-left: 1.5px solid rgba(255,255,255,0.1);
+    font-size: 0.7rem;
     padding: 0;
     min-width: 44px;
     box-shadow: none;
 }
 
-.launch-split-btn .btn-primary.launch-dropdown {
-    background: linear-gradient(135deg, var(--accent-dim), #0284c7);
+.launch-split-btn .btn-local.launch-dropdown {
+    border-left: 1.5px solid rgba(52, 211, 153, 0.25);
 }
 
 .launch-split-btn .btn-atv.launch-dropdown {
-    border-left: 2px solid rgba(168, 85, 247, 0.3);
+    border-left: 1.5px solid rgba(168, 85, 247, 0.25);
 }
 
 .launch-dropdown-menu {
@@ -1901,6 +2006,9 @@ select { cursor: pointer; }
     }
     .approved-challenge-info {
         gap: 5px;
+    }
+    .launch-row {
+        flex-direction: column;
     }
     .launch-split-btn .launch-dropdown {
         width: 38px;

@@ -38,6 +38,8 @@ const App = {
     selectedTheme: 'mission_control',
     currentThemeSlug: null,
     appleTVMode: false,
+    localMode: false,
+    _localAudio: null,
     fetchedEntities: null,
     fetchedSpeakers: null,
     floors: [],
@@ -257,10 +259,11 @@ const App = {
             const content = document.getElementById('launch-content');
 
             if (!allowed.length) {
-                // No speakers configured — show banner, disable launch
+                // No speakers configured — show banner, disable speaker-dependent launch buttons
                 if (banner) banner.style.display = 'flex';
                 document.getElementById('btn-launch').disabled = true;
                 document.getElementById('btn-launch-atv').disabled = true;
+                // Device Audio button stays enabled — no speakers needed
                 return;
             }
 
@@ -280,12 +283,6 @@ const App = {
                     body: JSON.stringify({ hub_speaker: hubSelect.value }),
                 });
             };
-
-            // Populate test speaker dropdown
-            const testSelect = document.getElementById('input-test-speaker');
-            testSelect.innerHTML = allowed.map(s =>
-                `<option value="${s.entity_id}">${s.friendly_name} (${s.area})</option>`
-            ).join('');
         } catch (err) {
             console.error('Failed to populate speaker dropdowns:', err);
         }
@@ -363,6 +360,7 @@ const App = {
                 this.setBackgroundImage(data.intro_image_url || null);
                 this.showScreen('game');
                 this.showWaiting('Starting game...');
+                this.updateGameVolumeBar();
                 break;
 
             case 'precaching':
@@ -381,6 +379,10 @@ const App = {
 
             case 'precaching_done':
                 this.showWaiting('Game starting...');
+                break;
+
+            case 'status':
+                this.showWaiting(data.message || 'Loading...');
                 break;
 
             case 'game_started':
@@ -440,15 +442,27 @@ const App = {
                 this.gameState.results = data.results;
                 this.gameState.totalTime = data.total_time;
                 this.gameState.completedCount = data.completed;
+                this.stopLocalAudio();
                 this.clearGameVisuals();
                 this.showResults();
+                document.getElementById('game-volume-bar').style.display = 'none';
                 break;
 
             case 'game_stopped':
                 this.gameState.running = false;
                 this.gameState.results = data.results || [];
+                this.stopLocalAudio();
                 this.clearGameVisuals();
                 this.showResults();
+                document.getElementById('game-volume-bar').style.display = 'none';
+                break;
+
+            case 'local_play_audio':
+                this.playLocalAudio(data.audio_url);
+                break;
+
+            case 'local_fade_out':
+                this.fadeOutLocalAudio();
                 break;
 
             case 'atv_waiting_for_advance':
@@ -481,6 +495,7 @@ const App = {
         });
 
         document.getElementById('btn-launch').addEventListener('click', () => this.startGame());
+        document.getElementById('btn-launch-local').addEventListener('click', () => this.startGameLocal());
         document.getElementById('btn-launch-atv').addEventListener('click', () => this.startGameATV());
 
         // Split-button dropdowns
@@ -488,17 +503,25 @@ const App = {
             e.stopPropagation();
             this.toggleDropdown('launch-dropdown-menu');
         });
+        document.getElementById('btn-launch-local-dropdown').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleDropdown('launch-local-dropdown-menu');
+        });
         document.getElementById('btn-launch-atv-dropdown').addEventListener('click', (e) => {
             e.stopPropagation();
             this.toggleDropdown('launch-atv-dropdown-menu');
         });
         document.getElementById('btn-review-launch').addEventListener('click', () => {
             this.closeDropdowns();
-            this.reviewAndLaunch(false);
+            this.reviewAndLaunch('normal');
+        });
+        document.getElementById('btn-review-launch-local').addEventListener('click', () => {
+            this.closeDropdowns();
+            this.reviewAndLaunch('local');
         });
         document.getElementById('btn-review-launch-atv').addEventListener('click', () => {
             this.closeDropdowns();
-            this.reviewAndLaunch(true);
+            this.reviewAndLaunch('atv');
         });
         document.getElementById('btn-confirm-launch').addEventListener('click', () => this.confirmReviewLaunch());
         document.getElementById('btn-cancel-review').addEventListener('click', () => this.cancelReview());
@@ -509,10 +532,6 @@ const App = {
         document.getElementById('btn-play-again').addEventListener('click', () => this.showScreen('setup'));
         document.getElementById('btn-save-config').addEventListener('click', () => this.saveConfig());
 
-        document.getElementById('input-test-mode').addEventListener('change', (e) => {
-            document.getElementById('test-speaker-select').style.display = e.target.checked ? 'block' : 'none';
-        });
-
         document.getElementById('btn-fetch-entities').addEventListener('click', () => this.fetchEntities());
         document.getElementById('btn-suggest').addEventListener('click', () => this.suggestChallenges());
         document.getElementById('btn-discover-speakers').addEventListener('click', () => this.discoverSpeakers());
@@ -520,6 +539,12 @@ const App = {
         document.getElementById('btn-save-floors').addEventListener('click', () => this.saveFloors());
         document.getElementById('input-speaker-volume').addEventListener('input', (e) => {
             document.getElementById('volume-display').textContent = e.target.value + '%';
+            // Sync game volume slider if visible
+            const gameSlider = document.getElementById('game-volume-slider');
+            if (gameSlider) {
+                gameSlider.value = e.target.value;
+                document.getElementById('game-volume-display').textContent = e.target.value + '%';
+            }
         });
         document.getElementById('input-speaker-volume').addEventListener('change', (e) => {
             fetch('/api/config', {
@@ -527,6 +552,22 @@ const App = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ speaker_volume: parseInt(e.target.value, 10) / 100 }),
             });
+        });
+
+        // Game volume bar
+        document.getElementById('game-volume-slider').addEventListener('input', (e) => {
+            document.getElementById('game-volume-display').textContent = e.target.value + '%';
+        });
+        document.getElementById('game-volume-slider').addEventListener('change', (e) => {
+            const vol = parseInt(e.target.value, 10) / 100;
+            fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ speaker_volume: vol }),
+            });
+            // Sync settings slider
+            document.getElementById('input-speaker-volume').value = e.target.value;
+            document.getElementById('volume-display').textContent = e.target.value + '%';
         });
 
         // Hub speaker auto-save is set up in populateSpeakerDropdowns
@@ -569,28 +610,24 @@ const App = {
     },
 
     // --- Game Actions ---
-    async startGame() {
-        const btn = document.getElementById('btn-launch');
-        btn.disabled = true;
-        btn.textContent = 'Starting...';
-
+    _buildLaunchBody() {
         const body = {
             theme: this.selectedTheme,
             rounds: parseInt(document.getElementById('input-rounds').value) || 5,
             difficulty: document.getElementById('input-difficulty').value,
-            test_mode: document.getElementById('input-test-mode').checked,
-            test_speaker: document.getElementById('input-test-speaker').value,
         };
-
         const selectedFloors = this.getSelectedFloors();
         if (selectedFloors) body.floors = selectedFloors;
-
         const haUrl = document.getElementById('input-ha-url').value.trim();
         if (haUrl) body.ha_url = haUrl;
-
         const hubSpeaker = document.getElementById('input-hub-speaker-select').value;
         if (hubSpeaker) body.hub_speaker = hubSpeaker;
+        return body;
+    },
 
+    async _launchGame(btn, body, originalText) {
+        btn.disabled = true;
+        btn.textContent = 'Starting...';
         try {
             const resp = await fetch('/api/start', {
                 method: 'POST',
@@ -598,57 +635,47 @@ const App = {
                 body: JSON.stringify(body),
             });
             const data = await resp.json();
-            if (data.error) {
-                alert(data.error);
-            }
+            if (data.error) alert(data.error);
         } catch (err) {
             alert('Failed to start game: ' + err.message);
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Launch Mission';
+            btn.textContent = originalText;
         }
     },
 
+    async startGame() {
+        this.appleTVMode = false;
+        this.localMode = false;
+        await this._launchGame(
+            document.getElementById('btn-launch'),
+            this._buildLaunchBody(),
+            'Launch Mission',
+        );
+    },
+
+    async startGameLocal() {
+        this.appleTVMode = false;
+        this.localMode = true;
+        const body = this._buildLaunchBody();
+        body.local_mode = true;
+        await this._launchGame(
+            document.getElementById('btn-launch-local'),
+            body,
+            'Launch (Device Audio)',
+        );
+    },
+
     async startGameATV() {
-        const btn = document.getElementById('btn-launch-atv');
-        btn.disabled = true;
-        btn.textContent = 'Starting...';
         this.appleTVMode = true;
-
-        const body = {
-            theme: this.selectedTheme,
-            rounds: parseInt(document.getElementById('input-rounds').value) || 5,
-            difficulty: document.getElementById('input-difficulty').value,
-            test_mode: document.getElementById('input-test-mode').checked,
-            test_speaker: document.getElementById('input-test-speaker').value,
-            appletv_mode: true,
-        };
-
-        const selectedFloors = this.getSelectedFloors();
-        if (selectedFloors) body.floors = selectedFloors;
-
-        const haUrl = document.getElementById('input-ha-url').value.trim();
-        if (haUrl) body.ha_url = haUrl;
-
-        const hubSpeaker = document.getElementById('input-hub-speaker-select').value;
-        if (hubSpeaker) body.hub_speaker = hubSpeaker;
-
-        try {
-            const resp = await fetch('/api/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-            const data = await resp.json();
-            if (data.error) {
-                alert(data.error);
-            }
-        } catch (err) {
-            alert('Failed to start game: ' + err.message);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Launch Mission (Apple TV)';
-        }
+        this.localMode = false;
+        const body = this._buildLaunchBody();
+        body.appletv_mode = true;
+        await this._launchGame(
+            document.getElementById('btn-launch-atv'),
+            body,
+            'Launch (Apple TV)',
+        );
     },
 
     async advanceMission() {
@@ -669,6 +696,57 @@ const App = {
 
     async stopGame() {
         await fetch('/api/stop', { method: 'POST' });
+    },
+
+    // --- Local Audio Playback ---
+    playLocalAudio(url) {
+        if (this._localAudio) {
+            this._localAudio.pause();
+            this._localAudio = null;
+        }
+        const audio = new Audio(url);
+        audio.play().catch(err => console.error('Local audio play failed:', err));
+        this._localAudio = audio;
+    },
+
+    fadeOutLocalAudio() {
+        if (!this._localAudio) return;
+        const audio = this._localAudio;
+        const steps = 6;
+        const stepTime = 400;
+        let step = 0;
+        const interval = setInterval(() => {
+            step++;
+            audio.volume = Math.max(0, 1 - step / steps);
+            if (step >= steps) {
+                clearInterval(interval);
+                audio.pause();
+                if (this._localAudio === audio) this._localAudio = null;
+            }
+        }, stepTime);
+    },
+
+    stopLocalAudio() {
+        if (this._localAudio) {
+            this._localAudio.pause();
+            this._localAudio = null;
+        }
+    },
+
+    // --- Game Volume Bar ---
+    updateGameVolumeBar() {
+        const bar = document.getElementById('game-volume-bar');
+        const label = document.getElementById('game-volume-label');
+        if (this.localMode) {
+            bar.style.display = 'none';
+        } else {
+            label.textContent = this.appleTVMode ? 'Remote Speaker Volume' : 'Volume Control';
+            bar.style.display = 'flex';
+            // Sync from settings slider
+            const vol = document.getElementById('input-speaker-volume').value;
+            document.getElementById('game-volume-slider').value = vol;
+            document.getElementById('game-volume-display').textContent = vol + '%';
+        }
     },
 
     // --- Render ---
@@ -1820,15 +1898,16 @@ const App = {
 
     closeDropdowns() {
         document.getElementById('launch-dropdown-menu').style.display = 'none';
+        document.getElementById('launch-local-dropdown-menu').style.display = 'none';
         document.getElementById('launch-atv-dropdown-menu').style.display = 'none';
     },
 
     // --- Review & Launch ---
     reviewChallenges: [],
-    reviewATVMode: false,
+    reviewLaunchMode: 'normal',
 
-    async reviewAndLaunch(atvMode) {
-        this.reviewATVMode = atvMode;
+    async reviewAndLaunch(mode) {
+        this.reviewLaunchMode = mode;
         const rounds = parseInt(document.getElementById('input-rounds').value) || 5;
         const difficulty = document.getElementById('input-difficulty').value;
         const selectedFloors = this.getSelectedFloors();
@@ -1947,16 +2026,18 @@ const App = {
         btn.disabled = true;
         btn.textContent = 'Starting...';
 
+        this.appleTVMode = this.reviewLaunchMode === 'atv';
+        this.localMode = this.reviewLaunchMode === 'local';
+
         const body = {
             theme: this.selectedTheme,
             rounds: active.length,
             difficulty: document.getElementById('input-difficulty').value,
-            test_mode: document.getElementById('input-test-mode').checked,
-            test_speaker: document.getElementById('input-test-speaker').value,
             challenge_ids: challengeIds,
         };
 
-        if (this.reviewATVMode) body.appletv_mode = true;
+        if (this.reviewLaunchMode === 'atv') body.appletv_mode = true;
+        if (this.reviewLaunchMode === 'local') body.local_mode = true;
 
         const haUrl = document.getElementById('input-ha-url').value.trim();
         if (haUrl) body.ha_url = haUrl;

@@ -169,9 +169,8 @@ class StartRequest(BaseModel):
     difficulty: str = "mixed"
     ha_url: str | None = None
     hub_speaker: str | None = None
-    test_mode: bool = False
-    test_speaker: str = "media_player.test_speaker"
     appletv_mode: bool = False
+    local_mode: bool = False
     floors: list[str] | None = None
     challenge_ids: list[str] | None = None
 
@@ -886,11 +885,8 @@ async def start_game(req: StartRequest):
     if req.hub_speaker:
         engine.hub_speaker = req.hub_speaker
 
-    engine.test_mode = req.test_mode
-    engine.test_speaker = req.test_speaker
-
-    # Apple TV mode
     engine.appletv_mode = req.appletv_mode
+    engine.local_mode = req.local_mode
 
     asyncio.create_task(engine.run_game(req.theme, rounds, req.difficulty, floors=req.floors, challenge_ids=req.challenge_ids))
     return {"status": "starting"}

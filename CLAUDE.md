@@ -41,18 +41,25 @@ Two launch modes:
 
 When launched with "Launch Mission (Apple TV)", hub audio is broadcast via WebSocket (`atv_play_audio` events) instead of playing on speakers. The tvOS app receives these events, plays audio via AVPlayer, and renders mission cards natively in SwiftUI. Room speakers still handle success messages. Inter-round advancement uses "Next Mission" button (on web dashboard or Apple TV remote via Menu button).
 
+## Device Audio Mode
+
+"Launch (Device Audio)" plays ALL audio (hub + room) through the web browser via HTML5 Audio. No `media_player` calls to HA. Audio URLs are broadcast via WebSocket (`local_play_audio` events) and played by the browser. Game mechanics (entity monitoring, state changes) still use HA. Works without any speakers configured.
+
 ## Speaker Routing (`_resolve_speaker`)
 
 | Mode | Hub Speaker | Room Speakers |
 |------|------------|---------------|
 | Normal | Hub speaker | Room speakers |
-| Test | Test speaker | Test speaker |
+| Device Audio | "local" (browser) | "local" (browser) |
 | Apple TV | "appletv" (WebSocket) | Room speakers |
-| Apple TV + Test | "appletv" (WebSocket) | Test speaker |
+
+## Audio in Home Assistant
+
+When using network speakers (Normal or Apple TV mode), audio files are temporarily uploaded to HA's media library (`media-source://media_source/local/mc_audio/`) for playback via `media_player.play_media`. All uploaded files are cleaned up via `cleanup_ha_media()` when a game ends. Device Audio mode skips HA uploads entirely — audio is served directly from FastAPI's `/audio/` mount to the browser. The precache step (`_generate_and_upload`) also skips HA uploads in local mode.
 
 ## Speaker Volume
 
-Configurable via Settings UI slider (default 40%, persisted in config). All `media_player` volume calls use `engine.speaker_volume`. Intro music plays at 70% of the configured volume for a softer lead-in. Does not affect Apple TV hub audio (controlled by TV remote).
+Configurable via Settings UI slider (default 40%, persisted in config) and an in-game volume bar (shown in Normal and Apple TV modes, hidden in Device Audio mode). All `media_player` volume calls use `engine.speaker_volume`. Intro music plays at 70% of the configured volume for a softer lead-in. Does not affect Apple TV hub audio (controlled by TV remote) or Device Audio (controlled by device volume).
 
 ## Config
 

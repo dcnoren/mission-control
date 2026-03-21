@@ -35,8 +35,6 @@ FADE_STEP_TIME = 0.4
 HA_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=15)
 ELEVENLABS_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
-TEST_SPEAKER = "media_player.test_speaker"
-
 MAX_WS_RECONNECT_ATTEMPTS = 3
 
 
@@ -139,11 +137,10 @@ class GameEngine:
         self.results: list[dict] = []
         self.skip_requested = False
         self.stop_requested = False
-        self.test_mode = False
-        self.test_speaker = TEST_SPEAKER
-
         # Apple TV mode — tvOS app connects via WebSocket for audio/visuals
         self.appletv_mode = False
+        # Local mode — all audio broadcast via WebSocket for browser playback
+        self.local_mode = False
         self.advance_event: asyncio.Event = asyncio.Event()
 
         # Track which files have been uploaded to HA this session
@@ -244,13 +241,12 @@ class GameEngine:
 
     def _resolve_speaker(self, speaker: str) -> str:
         """Resolve speaker routing based on mode.
-        Apple TV mode: hub speaker content → 'appletv' sentinel.
-        Test mode: non-hub speakers → test speaker.
-        Apple TV + Test: hub → Apple TV, rooms → test speaker."""
+        Local mode: all audio → 'local' sentinel (browser playback).
+        Apple TV mode: hub speaker → 'appletv' sentinel."""
+        if self.local_mode:
+            return "local"
         if self.appletv_mode and speaker == self.hub_speaker:
             return "appletv"
-        if self.test_mode:
-            return self.test_speaker
         return speaker
 
     # --- ElevenLabs Direct TTS ---
@@ -503,18 +499,19 @@ class GameEngine:
         if to_generate:
             await asyncio.gather(*[gen(t, v, vs) for t, v, vs in to_generate])
 
-        # Upload to HA
-        upload_sem = asyncio.Semaphore(5)
+        # Upload to HA (skip in local mode — browser plays directly from server)
+        if not self.local_mode:
+            upload_sem = asyncio.Semaphore(5)
 
-        async def upload(fn):
-            async with upload_sem:
-                try:
-                    await self.upload_to_ha(fn)
-                except Exception as e:
-                    logger.error(f"Upload failed for {fn}: {e}")
+            async def upload(fn):
+                async with upload_sem:
+                    try:
+                        await self.upload_to_ha(fn)
+                    except Exception as e:
+                        logger.error(f"Upload failed for {fn}: {e}")
 
-        all_filenames = [_cache_key(t, v, vs) for t, v, vs in clips]
-        await asyncio.gather(*[upload(fn) for fn in all_filenames])
+            all_filenames = [_cache_key(t, v, vs) for t, v, vs in clips]
+            await asyncio.gather(*[upload(fn) for fn in all_filenames])
 
     async def precache_critical_audio(self, theme: Theme, challenges: list[Challenge],
                                       intro_text: str, outro_template: str):
@@ -565,6 +562,24 @@ class GameEngine:
         logger.info(f"ATV audio broadcast: {filename} ({duration:.1f}s)")
         await asyncio.sleep(duration)
 
+    async def play_on_local(self, audio_path: str | None, **kwargs):
+        """Broadcast audio URL via WebSocket for browser playback."""
+        if not audio_path:
+            return
+
+        filename = Path(audio_path).name
+        audio_url = f"{self.server_url}/audio/{filename}"
+        duration = _get_mp3_duration(audio_path)
+
+        await self.broadcast({
+            "type": "local_play_audio",
+            "audio_url": audio_url,
+            "duration": duration,
+        })
+
+        logger.info(f"Local audio broadcast: {filename} ({duration:.1f}s)")
+        await asyncio.sleep(duration)
+
     def request_advance(self):
         """Signal inter-round advancement from the dashboard."""
         self.advance_event.set()
@@ -580,6 +595,11 @@ class GameEngine:
         # Apple TV path: broadcast audio URL for tvOS app
         if resolved == "appletv":
             await self.play_on_appletv(audio_path=str(filepath))
+            return
+
+        # Local path: broadcast audio URL for browser playback
+        if resolved == "local":
+            await self.play_on_local(audio_path=str(filepath))
             return
 
         # Sonos path: upload to HA and play
@@ -864,8 +884,8 @@ class GameEngine:
         theme = ALL_THEMES.get(theme_slug, ALL_THEMES["mission_control"])
         self._current_theme = theme
 
-        if self.test_mode:
-            logger.info(f"TEST MODE: All audio routed to {self.test_speaker}")
+        if self.local_mode:
+            logger.info("LOCAL MODE: All audio routed to browser")
         if self.appletv_mode:
             logger.info("APPLE TV MODE: Hub audio routed to Apple TV")
 
@@ -932,14 +952,15 @@ class GameEngine:
             # Start playing intro music while we precache (non-blocking)
             music_start = time.time()
             if music_file:
-                if hub_resolved == "appletv":
+                if hub_resolved in ("appletv", "local"):
                     filename = Path(music_file).name
                     audio_url = f"{self.server_url}/audio/{filename}"
+                    event_type = "atv_play_audio" if hub_resolved == "appletv" else "local_play_audio"
                     await self.broadcast({
-                        "type": "atv_play_audio",
+                        "type": event_type,
                         "audio_url": audio_url,
                     })
-                    logger.info(f"ATV intro music broadcast (non-blocking)")
+                    logger.info(f"{hub_resolved.upper()} intro music broadcast (non-blocking)")
                 else:
                     music_url = await self.upload_to_ha(music_file)
                     volume = self.speaker_volume * INTRO_MUSIC_VOLUME_RATIO
@@ -967,8 +988,9 @@ class GameEngine:
 
             # Fade out music
             if music_file:
-                if hub_resolved == "appletv":
-                    await self.broadcast({"type": "atv_fade_out"})
+                if hub_resolved in ("appletv", "local"):
+                    fade_type = "atv_fade_out" if hub_resolved == "appletv" else "local_fade_out"
+                    await self.broadcast({"type": fade_type})
                     await asyncio.sleep(FADE_STEPS * FADE_STEP_TIME + 0.5)
                 else:
                     volume = self.speaker_volume * INTRO_MUSIC_VOLUME_RATIO
@@ -976,9 +998,8 @@ class GameEngine:
                     await asyncio.sleep(0.5)
 
             # Intro TTS
-            await self.play_cached_audio(hub, intro_text, theme.announcer_voice, theme.announcer_voice_settings)
-
             await self.broadcast({"type": "game_started", "total_rounds": len(challenges)})
+            await self.play_cached_audio(hub, intro_text, theme.announcer_voice, theme.announcer_voice_settings)
 
             total_time = 0
             for i, challenge in enumerate(challenges):
@@ -1117,7 +1138,7 @@ class GameEngine:
                     rounds=completed_count,
                 )
                 outro_resolved = self._resolve_speaker(self.hub_speaker)
-                if outro_resolved != "appletv":
+                if outro_resolved not in ("appletv", "local"):
                     await self.set_volume(outro_resolved, self.speaker_volume)
                 await self.play_cached_audio(self.hub_speaker, outro, theme.celebration_voice, theme.celebration_voice_settings)
 

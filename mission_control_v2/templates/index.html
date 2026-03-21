@@ -64,30 +64,11 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="input-hub-speaker-select">Hub Speaker</label>
-                            <select id="input-hub-speaker-select">
-                                <option value="">-- Configure in Settings --</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>&nbsp;</label>
-                            <label class="toggle-label" style="padding-top:4px">
-                                <input type="checkbox" id="input-test-mode">
-                                <span class="toggle-slider"></span>
-                                <span class="toggle-text">Test Mode</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="test-speaker-select" id="test-speaker-select" style="display:none;">
-                        <div class="form-group">
-                            <label for="input-test-speaker">Test Speaker</label>
-                            <select id="input-test-speaker">
-                                <option value="">-- Configure in Settings --</option>
-                            </select>
-                        </div>
+                    <div class="form-group">
+                        <label for="input-hub-speaker-select">Hub Speaker</label>
+                        <select id="input-hub-speaker-select">
+                            <option value="">-- Configure in Settings --</option>
+                        </select>
                     </div>
 
                     <div id="floor-filter-group" style="display:none">
@@ -97,18 +78,27 @@
 
                     <div class="challenge-db-summary" id="challenge-db-summary"></div>
 
-                    <div class="launch-split-btn">
-                        <button class="btn btn-primary launch-main" id="btn-launch">Launch Mission</button>
-                        <button class="btn btn-primary launch-dropdown" id="btn-launch-dropdown">&#9662;</button>
-                        <div class="launch-dropdown-menu" id="launch-dropdown-menu" style="display:none">
-                            <button class="launch-dropdown-item" id="btn-review-launch">Review & Launch</button>
+                    <div class="launch-row">
+                        <div class="launch-split-btn">
+                            <button class="btn btn-primary launch-main" id="btn-launch">Launch Mission</button>
+                            <button class="btn btn-primary launch-dropdown" id="btn-launch-dropdown">&#9662;</button>
+                            <div class="launch-dropdown-menu" id="launch-dropdown-menu" style="display:none">
+                                <button class="launch-dropdown-item" id="btn-review-launch">Review & Launch</button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="launch-split-btn" style="margin-top:10px">
-                        <button class="btn btn-atv launch-main" id="btn-launch-atv">Launch Mission (Apple TV)</button>
-                        <button class="btn btn-atv launch-dropdown" id="btn-launch-atv-dropdown">&#9662;</button>
-                        <div class="launch-dropdown-menu" id="launch-atv-dropdown-menu" style="display:none">
-                            <button class="launch-dropdown-item" id="btn-review-launch-atv">Review & Launch</button>
+                        <div class="launch-split-btn">
+                            <button class="btn btn-local launch-main" id="btn-launch-local">Launch (Device Audio)</button>
+                            <button class="btn btn-local launch-dropdown" id="btn-launch-local-dropdown">&#9662;</button>
+                            <div class="launch-dropdown-menu" id="launch-local-dropdown-menu" style="display:none">
+                                <button class="launch-dropdown-item" id="btn-review-launch-local">Review & Launch</button>
+                            </div>
+                        </div>
+                        <div class="launch-split-btn">
+                            <button class="btn btn-atv launch-main" id="btn-launch-atv">Launch (Apple TV)</button>
+                            <button class="btn btn-atv launch-dropdown" id="btn-launch-atv-dropdown">&#9662;</button>
+                            <div class="launch-dropdown-menu" id="launch-atv-dropdown-menu" style="display:none">
+                                <button class="launch-dropdown-item" id="btn-review-launch-atv">Review & Launch</button>
+                            </div>
                         </div>
                     </div>
 
@@ -265,6 +255,12 @@
                         <div>Waiting for game...</div>
                     </div>
                 </div>
+            </div>
+
+            <div class="game-volume-bar" id="game-volume-bar" style="display:none">
+                <label for="game-volume-slider" id="game-volume-label">Volume Control</label>
+                <input type="range" id="game-volume-slider" min="0" max="100" value="40" step="5">
+                <span id="game-volume-display">40%</span>
             </div>
 
             <button class="btn btn-advance" id="btn-advance" style="display:none;">Next Mission</button>
