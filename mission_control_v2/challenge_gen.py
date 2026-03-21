@@ -34,6 +34,14 @@ Generate challenges as a JSON array. Each challenge must have:
 - multi_target: true if targets has more than one item, false otherwise
 - funny_announcements: array of 2 humorous alternative announcements that say the same thing but funnier (keep them short, 1-2 sentences max)
 
+CONTENT GUIDELINES (this is a game for young kids, ages 4-8):
+- Keep all text fun, playful, and age-appropriate
+- NEVER reference: politics, religion, climate change, energy saving/conservation, environmental messaging, violence, or anything scary
+- NEVER use words like: stupid, dumb, idiot, hate, ugly, loser, or any insults
+- NEVER use curse words or bathroom humor
+- Framing should be purely about fun and play — e.g. "turn off the lights" is fine, "turn off the lights to save energy" is not
+- Avoid moralizing, lecturing, or teaching lessons — just make it a fun game
+
 RULES:
 - Only use entity_ids from the provided ENTITIES list
 - Only use speaker entity_ids from the provided SPEAKERS list
@@ -217,6 +225,8 @@ class ChallengeGenerator:
 The user wants you to revise it with this feedback:
 "{feedback}"
 
+CONTENT GUIDELINES: This is a game for young kids (ages 4-8). Keep text fun and playful. Never reference politics, religion, climate change, energy saving, violence, or anything scary. Never use words like stupid, dumb, idiot, hate, ugly, loser. No moralizing or teaching lessons — just fun.
+
 Available entities: {json.dumps(entities, indent=2)}
 Available speakers: {json.dumps(speakers, indent=2)}
 Hub speaker: {hub_speaker}
@@ -243,11 +253,12 @@ Only use entity_ids from the provided entities list. No markdown fences."""
 
     async def regenerate_field(self, challenge: dict, field: str) -> str | list[str]:
         """Regenerate a single text field of a challenge."""
+        content_note = " (This is for kids ages 4-8. Keep it fun and playful. No references to politics, climate, energy saving, or anything scary. No insults or mean words.)"
         field_instructions = {
-            "announcement": "Write a new announcement for this challenge. This is spoken aloud to kids via TTS. Keep it 1-2 sentences, fun, playful, and clear about what they need to do. Return ONLY the announcement text, no quotes or JSON.",
-            "hint": "Write a new hint for this challenge. This is spoken after 30 seconds if kids haven't completed it yet. Keep it short, helpful, and encouraging. Return ONLY the hint text, no quotes or JSON.",
-            "success_message": "Write a new success/celebration message for this challenge. Use {time} as a placeholder for completion time. Keep it 1 sentence, excited and celebratory. Return ONLY the message text, no quotes or JSON.",
-            "funny_announcements": 'Write 2 funny alternative announcements for this challenge. Same info as the original but humorous. Keep each 1-2 sentences. Return ONLY a JSON array of 2 strings, e.g. ["first funny version", "second funny version"].',
+            "announcement": "Write a new announcement for this challenge. This is spoken aloud to kids via TTS. Keep it 1-2 sentences, fun, playful, and clear about what they need to do." + content_note + " Return ONLY the announcement text, no quotes or JSON.",
+            "hint": "Write a new hint for this challenge. This is spoken after 30 seconds if kids haven't completed it yet. Keep it short, helpful, and encouraging." + content_note + " Return ONLY the hint text, no quotes or JSON.",
+            "success_message": "Write a new success/celebration message for this challenge. Use {time} as a placeholder for completion time. Keep it 1 sentence, excited and celebratory." + content_note + " Return ONLY the message text, no quotes or JSON.",
+            "funny_announcements": 'Write 2 funny alternative announcements for this challenge. Same info as the original but humorous. Keep each 1-2 sentences.' + content_note + ' Return ONLY a JSON array of 2 strings, e.g. ["first funny version", "second funny version"].',
         }
 
         if field not in field_instructions:

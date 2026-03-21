@@ -22,11 +22,11 @@ MISSION_CONTROL_PREFIXES = [
 ]
 
 BLUEY_PREFIXES = [
-    "Okay, new rule.",
-    "Right. For this next one...",
-    "This one's a bit tricky.",
-    "Ready? This one's important.",
-    "Okay everyone, listen to this.",
+    "Ooh! Ooh! This one, this one!",
+    "Ok this one's a bit tricky. Bingo, are you listening?",
+    "Ready? This one's important, so listen up!",
+    "Dad! ... Dad! Ok, next one!",
+    "You'll never guess what we have to do next!",
 ]
 
 SNOOP_PREFIXES = [
@@ -141,33 +141,34 @@ class BlueyTheme(Theme):
         super().__init__(
             name="Bluey",
             slug="bluey",
-            announcer_voice="QhzTYkz7VbKNwVeK3URf",  # Sammy (Bluey)
+            announcer_voice="b8gbDO0ybjX1VA89pBdX",  # Ruby Roo (Bluey)
             celebration_voice="hk6wpUusj7FFV03U5LvR",  # Bruce (Dad/Bandit)
             announcer_voice_settings=VoiceSettings(
-                stability=0.3, similarity_boost=0.75, style=0.9, speed=0.85,
-            ),  # Very expressive, animated, slower for cartoon feel
+                stability=0.33, similarity_boost=0.68, style=0.81, speed=1.07,
+            ),  # Bouncy young Aussie cartoon puppy energy
             celebration_voice_settings=VoiceSettings(
-                stability=0.4, similarity_boost=0.7, style=0.8, speed=0.9,
-            ),  # Warm dad energy, expressive but steadier
+                stability=0.45, similarity_boost=0.75, style=0.65, speed=1.0,
+            ),  # Warm dad energy, conversational not announcer-y
             announcement_prefixes=list(BLUEY_PREFIXES),
             success_prefixes=[
-                "Wackadoo. Nice one, kids.",
-                "Hooray. That was a good one.",
-                "That was brilliant, mate.",
-                "Ooh, good job, squirts.",
-                "Beauty. Well done, kids.",
+                "Wackadoo! Nice one, kids!",
+                "Hooray! That was a good one!",
+                "That was brilliant, mate!",
+                "Ooh, good job, squirts!",
+                "Beauty! Well done, kids!",
             ],
             hint_prefixes=[
-                "Bingo says...",
-                "Ooh ooh, here's a clue...",
-                "Dad would say...",
-                "Mum always says...",
-                "Hey, try this...",
+                "Bingo says she knows this one!",
+                "Ooh! Ooh! I know, I know! Here's a clue!",
+                "Dad would say, just have a look around!",
+                "Wait, wait, I'm thinking. Ok, try this!",
+                "Mum! ... Mum, can we have a hint? ... She says,",
             ],
             timeout_phrases=[
-                "Aww, we didn't get that one. That's ok. Let's try the next one.",
-                "Oh no. Time ran out. Don't worry, Bingo says we'll get the next one for sure.",
-                "We missed that one. But that's ok because... we're Bluey and Bingo and we never give up.",
+                "Aww! We didn't get that one. That's ok, that's ok, let's try the next one!",
+                "Oh no! Don't worry Bingo, we'll get the next one for sure!",
+                "We missed that one. But that's ok because we never, ever give up! Right Bingo?",
+                "Dad! We ran out of time! ... It's fine, it's fine. Next one, next one!",
             ],
             intro_music_prompt="Playful upbeat Australian kids TV show theme music, xylophone and ukulele, bouncy and cheerful like the Bluey cartoon intro, 15 seconds, fun and energetic",
             intro_scene_prompt="Bluey and Bingo playing in a colorful Australian backyard with a treehouse, cartoon blue heeler puppies, warm sunny day, Bluey TV show style animation, kookaburras and wombats, no text, 16:9",
@@ -175,16 +176,16 @@ class BlueyTheme(Theme):
             transition_prompt="Bluey and Bingo running along a cartoon backyard path, colorful flowers and butterflies, warm sunshine, Bluey TV show style animation, no text, 16:9",
             mission_scene_template="Bluey and Bingo on a mission in a cartoon {room}, blue heeler puppies exploring, bright colors, Bluey TV show style animation, warm and cheerful, no text, 16:9",
             intro_texts=[
-                "This episode of Bluey is called... Mission Control. Bluey and Bingo have a super important mission. Ready? Here we go...",
-                "Bluey here. Bingo and I have invented the best game ever. It's called Mission Control. Here's your first one...",
-                "Mum said we could play one more game before bed. So obviously we picked... Mission Control. Let's go...",
-                "Dad, Dad, watch this. We're playing Mission Control. Ok everyone, get ready... this is going to be amazing...",
+                "Dad! ... Dad! Watch this. We're playing Mission Control. Ok everyone, get ready, this is going to be amazing!",
+                "Bingo! Bingo, come here! We're doing Mission Control! You be the lookout and I'll read the missions. Ready? Let's go!",
+                "Mum said we could play one more game before bed. So obviously we picked Mission Control! This is going to be the best one yet!",
+                "This episode of Bluey is called, Mission Control! We have a super important mission and we need everyone's help. Ready? Here we go!",
             ],
             outro_texts=[
-                "Well done, kids. {total_time} seconds across {rounds} missions. That was... honestly pretty impressive. Mum, did you see what they just did.",
-                "Right. {rounds} missions in {total_time} seconds. I reckon that's a new family record. Who wants ice cream.",
-                "You absolute legends. {total_time} seconds for {rounds} missions. I think we might be the best Mission Controllers in all of Brisbane... maybe even the world.",
-                "That's it, kids. {rounds} missions, {total_time} seconds. I'm not crying... I've just got something in my eye. Alright, who's up for another round.",
+                "Well done, kids. {total_time} seconds, across {rounds} missions. That was honestly pretty impressive. Mum! Did you see what they just did?!",
+                "Right! {rounds} missions in {total_time} seconds. I reckon that's a new family record! Who wants ice cream?!",
+                "You absolute legends! {total_time} seconds for {rounds} missions! I think we might be the best Mission Controllers in all of Brisbane. Maybe even the world!",
+                "That's it, kids. {rounds} missions, {total_time} seconds. I'm not crying, I've just got something in my eye. Alright, who's up for another round?!",
             ],
         )
 

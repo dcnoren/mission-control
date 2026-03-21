@@ -90,4 +90,4 @@ Theme text (intros, outros, prefixes, hints, timeouts) is editable via the Setti
 - Intro music: non-blocking broadcast, minimum 15s play time, fade out before voice intro
 - Scene images: generated via OpenRouter (Gemini), cached by hash of prompt in `/app/data/cache/`
 - ElevenLabs voices: changing voice IDs in themes.py automatically invalidates cached audio (voice ID is part of the hash)
-- Exclamation marks in theme text cause stilted ElevenLabs audio — avoid them
+- Exclamation marks in theme text can cause stilted audio on some ElevenLabs voices (e.g. Daniel), but work well with animation-style voices like Ruby Roo
