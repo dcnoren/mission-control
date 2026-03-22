@@ -43,7 +43,7 @@ Mission Control uses a single Gemini API key for all AI features. Google applies
 
 **Tier 2 (paid billing enabled)** — effectively unlimited for Mission Control usage. 1,000 RPM for Flash TTS and 10,000 requests per day means audio generation completes in seconds with no throttling.
 
-**Tier 1 (free tier)** — 10 RPM for Flash TTS, 100 requests per day. Mission Control includes adaptive throttling that detects rate limits and automatically backs off. The first game on a new set of challenges will take longer to generate audio (several minutes instead of seconds), but once cached, subsequent games are instant. The daily request limit means you can realistically generate audio for one full game per day on the free tier.
+**Tier 1 (free tier)** — 10 RPM for Flash TTS, 100 requests per day. Mission Control includes adaptive throttling that detects rate limits and automatically backs off. The first game on a new set of challenges will take longer to generate audio (several minutes instead of seconds). The daily limit of 100 requests is enough to fully generate audio for one set of challenges (~85 clips for a 5-round game). Once generated, all audio is cached permanently — you can play unlimited games with those challenges without any further API calls. Generating audio for additional challenge sets may require spreading across multiple days on the free tier.
 
 ### API Cost Estimates
 
