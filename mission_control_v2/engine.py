@@ -600,6 +600,21 @@ class GameEngine:
             logger.info(f"Warm cache: {len(unique)} clips for challenge '{challenge_data.get('name', '?')}'")
             await self._generate_and_upload(unique, label="warm-cache")
 
+        # Also warm scene images for all themes (no-op if already cached)
+        gen = self._get_image_gen()
+        if gen:
+            room = challenge_data.get("room", "")
+            for theme in ALL_THEMES.values():
+                # Room image for this challenge
+                if room and theme.mission_scene_template:
+                    prompt = theme.mission_scene_template.format(room=room)
+                    if not gen.is_cached(prompt):
+                        await gen.generate(prompt)
+                # Theme-level images (intro, transition, outro) — only generated once
+                for prompt in [theme.intro_scene_prompt, theme.transition_prompt, theme.outro_scene_prompt]:
+                    if prompt and not gen.is_cached(prompt):
+                        await gen.generate(prompt)
+
     async def precache_critical_audio(self, theme: Theme, challenges: list[Challenge],
                                       intro_text: str, outro_template: str):
         """Generate intro + first challenge audio (blocks), then kick off
