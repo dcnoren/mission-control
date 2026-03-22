@@ -251,8 +251,10 @@ class GameEngine:
                     if prompt not in room_prompts:
                         room_prompts.append(prompt)
 
-            # Then transition and outro
+            # Then intro, transition, and outro
             other_prompts = []
+            if theme.intro_scene_prompt:
+                other_prompts.append(theme.intro_scene_prompt)
             if theme.transition_prompt:
                 other_prompts.append(theme.transition_prompt)
             if theme.outro_scene_prompt:
