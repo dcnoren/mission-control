@@ -1304,6 +1304,8 @@ async def approve_challenge(req: ApproveRequest):
                 if key in req.overrides:
                     challenge[key] = req.overrides[key]
         challenge_db.add(challenge)
+        # Warm TTS cache in background so audio is ready before game starts
+        asyncio.create_task(engine.warm_cache_for_challenge(challenge))
         return {"status": "approved", "id": challenge["id"]}
     else:
         # Blacklist entities from denied challenges
@@ -1320,6 +1322,8 @@ async def approve_all_challenges():
     count = 0
     for challenge in pending_suggestions.values():
         challenge_db.add(challenge)
+        # Warm TTS cache in background
+        asyncio.create_task(engine.warm_cache_for_challenge(challenge))
         count += 1
     pending_suggestions = {}
     return {"status": "approved", "count": count}

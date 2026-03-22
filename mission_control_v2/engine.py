@@ -448,68 +448,72 @@ class GameEngine:
                          intro_text: str, outro_template: str):
         """Build the full list of clips needed and populate _announcement_options.
         Returns (critical_clips, remaining_clips) where critical = intro + first challenge.
-        Each clip is a (text, GeminiVoice) pair."""
+        Each clip is a (text, GeminiVoice) pair.
+        Clips are ordered by priority: critical (blocks game start), then gameplay
+        audio (announcements/hints/timeouts), then speculative (success/outro variants)."""
         ann = theme.announcer_voice
         cel = theme.celebration_voice
-        all_clips: list[tuple[str, GeminiVoice]] = []
         self._announcement_options: dict[str, list[str]] = {}
 
-        # Intro
-        all_clips.append((intro_text, ann))
+        # Priority 1: Critical — intro + first challenge (blocks game start)
+        critical: list[tuple[str, GeminiVoice]] = []
+        critical.append((intro_text, ann))
 
-        # Per-challenge: build wrapped announcements
-        for c in challenges:
+        # Priority 2: Gameplay — announcements, hints, timeouts (needed during rounds)
+        gameplay: list[tuple[str, GeminiVoice]] = []
+
+        for i, c in enumerate(challenges):
             options = []
             wrapped = theme.wrap_announcement(c.announcement)
             options.append(wrapped)
-            all_clips.append((wrapped, ann))
+            target = critical if i == 0 else gameplay
+            target.append((wrapped, ann))
             for funny in c.funny_announcements:
                 wrapped_funny = theme.wrap_announcement(funny)
                 options.append(wrapped_funny)
-                all_clips.append((wrapped_funny, ann))
+                target.append((wrapped_funny, ann))
             self._announcement_options[c.name] = options
-            all_clips.append((theme.wrap_hint(c.hint), ann))
+            target.append((theme.wrap_hint(c.hint), ann))
 
-        # Timeout phrases
+        # Timeout phrases are needed during any round
         for phrase in theme.timeout_phrases:
-            all_clips.append((phrase, ann))
+            gameplay.append((phrase, ann))
 
-        # Success prefix variants (precache a few common combos)
+        # Priority 3: Speculative — success messages and outros (nice to have precached)
+        speculative: list[tuple[str, GeminiVoice]] = []
+
         for c in challenges:
             spoken_times = ["5", "10", "15", "20", "30"]
             for t in spoken_times:
                 spoken = _seconds_to_words(t)
                 success_msg = c.success_message.format(time=spoken)
-                all_clips.append((theme.wrap_success(success_msg), cel))
+                speculative.append((theme.wrap_success(success_msg), cel))
 
-        # Outro variants
         for completed in range(0, len(challenges) + 1):
             for total in ["20", "30", "45", "60", "90", "120"]:
                 spoken_total = _seconds_to_words(total)
-                all_clips.append((
+                speculative.append((
                     outro_template.format(total_time=spoken_total, rounds=completed),
                     cel,
                 ))
 
-        # Deduplicate
+        # Deduplicate each list preserving order
         seen = set()
-        unique_clips = []
-        for text, voice in all_clips:
-            key = _cache_key(text, voice)
-            if key not in seen:
-                seen.add(key)
-                unique_clips.append((text, voice))
+        def dedup(clips):
+            result = []
+            for text, voice in clips:
+                key = _cache_key(text, voice)
+                if key not in seen:
+                    seen.add(key)
+                    result.append((text, voice))
+            return result
 
-        # Split: intro + first challenge clips are critical
-        critical_keys = {_cache_key(intro_text, ann)}
-        if challenges:
-            c = challenges[0]
-            for opt in self._announcement_options.get(c.name, []):
-                critical_keys.add(_cache_key(opt, ann))
-            critical_keys.add(_cache_key(theme.wrap_hint(c.hint), ann))
+        critical = dedup(critical)
+        gameplay = dedup(gameplay)
+        speculative = dedup(speculative)
 
-        critical = [(t, v) for t, v in unique_clips if _cache_key(t, v) in critical_keys]
-        remaining = [(t, v) for t, v in unique_clips if _cache_key(t, v) not in critical_keys]
+        # Background = gameplay first, then speculative
+        remaining = gameplay + speculative
 
         return critical, remaining
 
@@ -551,6 +555,48 @@ class GameEngine:
 
             all_filenames = [_cache_key(t, v) for t, v in clips]
             await asyncio.gather(*[upload(fn) for fn in all_filenames])
+
+    async def warm_cache_for_challenge(self, challenge_data: dict):
+        """Pre-generate TTS audio for a challenge across all themes.
+        Called in the background when a challenge is approved."""
+        from themes import ALL_THEMES
+
+        clips: list[tuple[str, GeminiVoice]] = []
+        for theme in ALL_THEMES.values():
+            ann = theme.announcer_voice
+            cel = theme.celebration_voice
+
+            # Announcement + funny variants (wrapped with theme prefix)
+            announcement = challenge_data.get("announcement", "")
+            if announcement:
+                clips.append((theme.wrap_announcement(announcement), ann))
+            for funny in challenge_data.get("funny_announcements", []):
+                clips.append((theme.wrap_announcement(funny), ann))
+
+            # Hint
+            hint = challenge_data.get("hint", "")
+            if hint:
+                clips.append((theme.wrap_hint(hint), ann))
+
+            # Success message variants
+            success_msg = challenge_data.get("success_message", "")
+            if success_msg:
+                for t in ["5", "10", "15", "20", "30"]:
+                    spoken = _seconds_to_words(t)
+                    clips.append((theme.wrap_success(success_msg.format(time=spoken)), cel))
+
+        # Deduplicate
+        seen = set()
+        unique = []
+        for text, voice in clips:
+            key = _cache_key(text, voice)
+            if key not in seen:
+                seen.add(key)
+                unique.append((text, voice))
+
+        if unique:
+            logger.info(f"Warm cache: {len(unique)} clips for challenge '{challenge_data.get('name', '?')}'")
+            await self._generate_and_upload(unique, label="warm-cache")
 
     async def precache_critical_audio(self, theme: Theme, challenges: list[Challenge],
                                       intro_text: str, outro_template: str):

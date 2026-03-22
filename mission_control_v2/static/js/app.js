@@ -990,7 +990,7 @@ const App = {
         const btn = document.getElementById('btn-suggest');
         const status = document.getElementById('suggest-status');
         btn.disabled = true;
-        btn.textContent = 'Generating (this takes ~30s)...';
+        btn.textContent = 'Generating (this takes ~60s)...';
         status.textContent = 'Sending entities to Gemini AI...';
 
         try {
