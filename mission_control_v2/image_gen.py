@@ -1,16 +1,14 @@
-"""AI image generation via OpenRouter (Nano Banana Pro)."""
+"""AI image generation via Gemini API."""
 import base64
 import hashlib
 import logging
-import re
 from pathlib import Path
 
 import aiohttp
 
 logger = logging.getLogger("mission_control.image_gen")
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "google/gemini-3-pro-image-preview"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent"
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=120)
 
 
@@ -59,74 +57,51 @@ class ImageGenerator:
             return cached.name
 
         if not self.api_key:
-            logger.warning("No OpenRouter API key — skipping image generation")
+            logger.warning("No Gemini API key — skipping image generation")
             return None
 
         try:
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            }
+            url = f"{GEMINI_URL}?key={self.api_key}"
             payload = {
-                "model": MODEL,
-                "modalities": ["image", "text"],
-                "messages": [
-                    {"role": "user", "content": f"Generate this image: {prompt}"}
+                "contents": [
+                    {"parts": [{"text": f"Generate this image: {prompt}"}]}
                 ],
+                "generationConfig": {
+                    "responseModalities": ["IMAGE", "TEXT"],
+                },
             }
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    OPENROUTER_URL, json=payload, headers=headers, timeout=REQUEST_TIMEOUT
+                    url, json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=REQUEST_TIMEOUT,
                 ) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        logger.error(f"OpenRouter image gen failed ({resp.status}): {body[:200]}")
+                        logger.error(f"Gemini image gen failed ({resp.status}): {body[:200]}")
                         return None
 
                     data = await resp.json()
 
-            # Extract base64 image from response
-            choices = data.get("choices", [])
-            if not choices:
-                logger.error("No choices in OpenRouter response")
+            # Extract base64 image from Gemini response
+            candidates = data.get("candidates", [])
+            if not candidates:
+                logger.error("No candidates in Gemini response")
                 return None
 
-            message = choices[0].get("message", {})
-
-            # OpenRouter returns images in message.images[] as data URIs
+            parts = candidates[0].get("content", {}).get("parts", [])
             image_data = None
-            images = message.get("images", [])
-            if images:
-                for img in images:
-                    if isinstance(img, dict) and img.get("type") == "image_url":
-                        url = img.get("image_url", {}).get("url", "")
-                        if url.startswith("data:"):
-                            image_data = url.split(",", 1)[-1]
-                            break
-
-            # Fallback: check content field (list of parts or string)
-            if not image_data:
-                content = message.get("content", "")
-                if isinstance(content, list):
-                    for part in content:
-                        if isinstance(part, dict):
-                            if "inline_data" in part:
-                                image_data = part["inline_data"].get("data")
-                                break
-                            if part.get("type") == "image_url":
-                                url = part.get("image_url", {}).get("url", "")
-                                if url.startswith("data:"):
-                                    image_data = url.split(",", 1)[-1]
-                                    break
-                elif isinstance(content, str) and content:
-                    match = re.search(r'data:image/[^;]+;base64,([A-Za-z0-9+/=]+)', content)
-                    if match:
-                        image_data = match.group(1)
+            for part in parts:
+                if "inlineData" in part:
+                    mime = part["inlineData"].get("mimeType", "")
+                    if mime.startswith("image/"):
+                        image_data = part["inlineData"]["data"]
+                        break
 
             if not image_data:
-                logger.error("No image data found in OpenRouter response")
-                logger.debug(f"Message keys: {list(message.keys())}")
+                logger.error("No image data found in Gemini response")
+                logger.debug(f"Response parts: {[list(p.keys()) for p in parts]}")
                 return None
 
             # Decode and save

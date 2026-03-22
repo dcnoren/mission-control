@@ -89,8 +89,7 @@ const App = {
 
             // Show set/unset status for secret fields
             this.updateSecretStatus('status-ha-token', config.ha_token_set);
-            this.updateSecretStatus('status-elevenlabs-key', config.elevenlabs_api_key_set);
-            this.updateSecretStatus('status-openrouter-key', config.openrouter_api_key_set);
+            this.updateSecretStatus('status-gemini-key', config.gemini_api_key_set);
         } catch (err) {
             console.error('Failed to load config:', err);
         }
@@ -121,11 +120,8 @@ const App = {
         const haToken = document.getElementById('input-ha-token').value.trim();
         if (haToken) body.ha_token = haToken;
 
-        const elevenlabsKey = document.getElementById('input-elevenlabs-key').value.trim();
-        if (elevenlabsKey) body.elevenlabs_api_key = elevenlabsKey;
-
-        const openrouterKey = document.getElementById('input-openrouter-key').value.trim();
-        if (openrouterKey) body.openrouter_api_key = openrouterKey;
+        const geminiKey = document.getElementById('input-gemini-key').value.trim();
+        if (geminiKey) body.gemini_api_key = geminiKey;
 
         const hubSpeaker = document.getElementById('input-hub-speaker-select').value;
         if (hubSpeaker) body.hub_speaker = hubSpeaker;
@@ -146,8 +142,7 @@ const App = {
             if (data.status === 'saved') {
                 // Clear password fields after save
                 document.getElementById('input-ha-token').value = '';
-                document.getElementById('input-elevenlabs-key').value = '';
-                document.getElementById('input-openrouter-key').value = '';
+                document.getElementById('input-gemini-key').value = '';
                 // Refresh status indicators
                 await this.loadConfig();
             }
@@ -976,7 +971,7 @@ const App = {
         const status = document.getElementById('suggest-status');
         btn.disabled = true;
         btn.textContent = 'Generating (this takes ~30s)...';
-        status.textContent = 'Sending entities to Claude AI...';
+        status.textContent = 'Sending entities to Gemini AI...';
 
         try {
             const resp = await fetch('/api/challenges/suggest', {
@@ -1511,12 +1506,10 @@ const App = {
                 <div class="intro-music-item">
                     <div class="intro-music-info">
                         <span class="intro-music-name">${m.theme_name}</span>
-                        <span class="intro-music-status ${m.exists ? 'cached' : 'missing'}">${m.exists ? (m.size / 1024).toFixed(0) + ' KB' : 'Not generated'}</span>
+                        <span class="intro-music-status ${m.exists ? 'cached' : 'missing'}">${m.exists ? (m.size / 1024).toFixed(0) + ' KB' : 'Not available'}</span>
                     </div>
                     <div class="intro-music-actions">
                         ${m.exists ? `<button class="btn-approve" onclick="App.playIntroMusic('${m.audio_url}', this)">Play</button>` : ''}
-                        <button class="btn-rethink" onclick="App.generateIntroMusic('${m.theme}')">${m.exists ? 'Regenerate' : 'Generate'}</button>
-                        ${m.exists ? `<button class="btn-deny" onclick="App.deleteIntroMusic('${m.theme}')">Delete</button>` : ''}
                     </div>
                 </div>
             `).join('');

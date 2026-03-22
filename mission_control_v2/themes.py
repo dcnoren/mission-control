@@ -4,13 +4,10 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class VoiceSettings:
-    """Per-voice ElevenLabs tuning parameters."""
-    stability: float = 0.5
-    similarity_boost: float = 0.6
-    style: float = 0.65
-    use_speaker_boost: bool = True
-    speed: float = 1.0  # ElevenLabs supports 0.25-4.0
+class GeminiVoice:
+    """Gemini TTS voice configuration."""
+    name: str       # Gemini voice name (e.g. "Orus", "Leda", "Fenrir")
+    style_prompt: str  # Character description prepended to spoken text
 
 
 MISSION_CONTROL_PREFIXES = [
@@ -25,7 +22,7 @@ BLUEY_PREFIXES = [
     "Ooh! Ooh! This one, this one!",
     "Ok this one's a bit tricky. Bingo, are you listening?",
     "Ready? This one's important, so listen up!",
-    "Dad! ... Dad! Ok, next one!",
+    "Ok, ok, next one!",
     "You'll never guess what we have to do next!",
 ]
 
@@ -43,18 +40,15 @@ SNOOP_PREFIXES = [
 class Theme:
     name: str
     slug: str
-    announcer_voice: str
-    celebration_voice: str
+    announcer_voice: GeminiVoice
+    celebration_voice: GeminiVoice
     intro_texts: list[str]
     outro_texts: list[str]  # {total_time} and {rounds} placeholders
     announcement_prefixes: list[str] = field(default_factory=list)
     success_prefixes: list[str] = field(default_factory=list)
     hint_prefixes: list[str] = field(default_factory=list)
     timeout_phrases: list[str] = field(default_factory=list)
-    intro_music_prompt: str = ""
-    intro_music_variations: list[str] = field(default_factory=list)
-    announcer_voice_settings: VoiceSettings = field(default_factory=VoiceSettings)
-    celebration_voice_settings: VoiceSettings = field(default_factory=VoiceSettings)
+    intro_music_file: str = ""  # static MP3 filename in static/audio/
     intro_scene_prompt: str = ""
     outro_scene_prompt: str = ""
     transition_prompt: str = ""
@@ -95,8 +89,14 @@ class MissionControlTheme(Theme):
         super().__init__(
             name="Mission Control",
             slug="mission_control",
-            announcer_voice="onwK4e9ZLuTAKqWW03F9",  # Daniel
-            celebration_voice="onwK4e9ZLuTAKqWW03F9",  # Daniel
+            announcer_voice=GeminiVoice(
+                name="Orus",
+                style_prompt="You are a suave British spy handler from a children's game. Speak with calm authority and just a hint of theatrical drama. Confident, measured, slightly dramatic. Keep a slight smile in your voice — you're talking to young agents you're proud of.",
+            ),
+            celebration_voice=GeminiVoice(
+                name="Orus",
+                style_prompt="You are a suave British spy handler congratulating your agents. Warm pride in your voice, measured but genuinely impressed. Calm authority with a hint of theatrical flair.",
+            ),
             announcement_prefixes=list(MISSION_CONTROL_PREFIXES),
             success_prefixes=[
                 "Consider it handled.",
@@ -117,14 +117,7 @@ class MissionControlTheme(Theme):
                 "Mission failed. Don't worry, agents. There are more assignments ahead.",
                 "We've lost that one, team. Shake it off. Next mission incoming.",
             ],
-            intro_music_prompt="Instrumental playful spy mission music for kids, medium tempo groovy walking bassline, silly James Bond parody, light orchestral brass stabs, bongo drums, sneaky but upbeat and cheerful, comical secret agent briefing, family-friendly",
-            intro_music_variations=[
-                "with a groovy spy bassline",
-                "adding a retro synth melody",
-                "with playful bongo rolls",
-                "featuring cheeky horn stabs",
-                "with a sneaky guitar riff",
-            ],
+            intro_music_file="intro_mission_control.mp3",
             intro_scene_prompt="Cinematic spy headquarters briefing room, agents silhouetted against a giant holographic world map, blue and cyan neon lighting, high-tech screens everywhere, dramatic atmosphere, no text, digital art, 16:9",
             outro_scene_prompt="Triumphant secret agent team celebration, fireworks and confetti against night sky, golden trophy, cinematic lighting, digital art, no text, 16:9",
             transition_prompt="Spy headquarters corridor with blue laser grid security system, moody lighting, cinematic perspective, digital art, no text, 16:9",
@@ -149,14 +142,14 @@ class BlueyTheme(Theme):
         super().__init__(
             name="Bluey",
             slug="bluey",
-            announcer_voice="b8gbDO0ybjX1VA89pBdX",  # Ruby Roo (Bluey)
-            celebration_voice="hk6wpUusj7FFV03U5LvR",  # Bruce (Dad/Bandit)
-            announcer_voice_settings=VoiceSettings(
-                stability=0.33, similarity_boost=0.68, style=0.81, speed=1.07,
-            ),  # Bouncy young Aussie cartoon puppy energy
-            celebration_voice_settings=VoiceSettings(
-                stability=0.45, similarity_boost=0.75, style=0.65, speed=1.0,
-            ),  # Warm dad energy, conversational not announcer-y
+            announcer_voice=GeminiVoice(
+                name="Leda",
+                style_prompt="You are a 7-year-old Australian girl, like Bluey from the TV show. Playful and upbeat with an Aussie accent. Enthusiastic but natural — like a real kid talking, not a cartoon character. Cheerful energy without being over the top.",
+            ),
+            celebration_voice=GeminiVoice(
+                name="Fenrir",
+                style_prompt="You are a warm, laid-back Australian dad, like Bandit from Bluey. Conversational, encouraging, genuinely proud but trying to play it cool. Slightly goofy, heart on your sleeve. Australian accent.",
+            ),
             announcement_prefixes=list(BLUEY_PREFIXES),
             success_prefixes=[
                 "Wackadoo! Nice one, kids!",
@@ -176,22 +169,15 @@ class BlueyTheme(Theme):
                 "Aww! We didn't get that one. That's ok, that's ok, let's try the next one!",
                 "Oh no! Don't worry Bingo, we'll get the next one for sure!",
                 "We missed that one. But that's ok because we never, ever give up! Right Bingo?",
-                "Dad! We ran out of time! ... It's fine, it's fine. Next one, next one!",
+                "We ran out of time! ... It's fine, it's fine. Next one, next one!",
             ],
-            intro_music_prompt="Instrumental acoustic kids TV theme, joyful and energetic, cheerful ukulele and bouncy marimba, bright indie pop folk, sunny playground vibe, fast tempo, playful and bouncy",
-            intro_music_variations=[
-                "with joyful whistling",
-                "featuring a playful melodica solo",
-                "with energetic rhythmic handclaps",
-                "adding an upbeat tambourine groove",
-                "with a cheerful glockenspiel melody",
-            ],
+            intro_music_file="intro_bluey.mp3",
             intro_scene_prompt="Bluey and Bingo playing in a colorful Australian backyard with a treehouse, cartoon blue heeler puppies, warm sunny day, Bluey TV show style animation, kookaburras and wombats, no text, 16:9",
             outro_scene_prompt="Bluey and Bingo celebrating with balloons and streamers in the backyard, cartoon blue heeler puppies jumping for joy, golden afternoon light, Bluey TV show style, no text, 16:9",
             transition_prompt="Bluey and Bingo running along a cartoon backyard path, colorful flowers and butterflies, warm sunshine, Bluey TV show style animation, no text, 16:9",
             mission_scene_template="Bluey and Bingo on a mission in a cartoon {room}, blue heeler puppies exploring, bright colors, Bluey TV show style animation, warm and cheerful, no text, 16:9",
             intro_texts=[
-                "Dad! ... Dad! Watch this. We're playing Mission Control. Ok everyone, get ready, this is going to be amazing!",
+                "Watch this! We're playing Mission Control. Ok everyone, get ready, this is going to be amazing!",
                 "Bingo! Bingo, come here! We're doing Mission Control! You be the lookout and I'll read the missions. Ready? Let's go!",
                 "Mum said we could play one more game before bed. So obviously we picked Mission Control! This is going to be the best one yet!",
                 "This episode of Bluey is called, Mission Control! We have a super important mission and we need everyone's help. Ready? Here we go!",
@@ -210,8 +196,14 @@ class SnoopAndSniffyTheme(Theme):
         super().__init__(
             name="Snoop and Sniffy",
             slug="snoop_and_sniffy",
-            announcer_voice="JBFqnCBsd6RMkjVDRZzb",  # George
-            celebration_voice="ThT5KcBeYPX3keUQqHPh",  # Dorothy
+            announcer_voice=GeminiVoice(
+                name="Fenrir",
+                style_prompt="You are a wise, warm old detective narrating a cozy mystery for children. Slightly gruff voice but very friendly, like a favorite grandpa who was once a great detective. Build intrigue with measured pacing and theatrical gravitas. Think Sherlock Holmes meets a kindly storyteller.",
+            ),
+            celebration_voice=GeminiVoice(
+                name="Fenrir",
+                style_prompt="You are a cheerful, warm detective celebrating a solved case with young detectives. Friendly, encouraging, with a touch of grandfatherly pride. Cozy mystery narrator energy.",
+            ),
             announcement_prefixes=list(SNOOP_PREFIXES),
             success_prefixes=[
                 "Case cracked.",
@@ -232,14 +224,7 @@ class SnoopAndSniffyTheme(Theme):
                 "Time's up on that one. Even Sniffy couldn't crack it. Let's move on to the next case.",
                 "The trail went cold. Shake it off, detectives. Snoop and Sniffy have another case for you.",
             ],
-            intro_music_prompt="Instrumental bouncy detective music for young kids, playful cartoon mystery investigation, continuous steady plodding rhythm, sneaky xylophone melody and comical woodwinds, curious and lighthearted, rhythmic walking bass, upbeat and silly",
-            intro_music_variations=[
-                "with a sneaky walking bassline",
-                "adding a playful xylophone riff",
-                "with comical bouncy percussion",
-                "featuring a cheeky muted trumpet",
-                "with a curious clarinet melody",
-            ],
+            intro_music_file="intro_snoop_and_sniffy.mp3",
             intro_scene_prompt="Cozy detective office with magnifying glass, old maps pinned to wall, warm lamplight, mysterious shadows, children's mystery book illustration style, no text, 16:9",
             outro_scene_prompt="Detectives celebrating a solved case, confetti and gold stars, warm cozy lamplight, happy ending, children's mystery illustration, no text, 16:9",
             transition_prompt="Mysterious footprints trail along a foggy path, detective hat and magnifying glass, warm amber tones, children's illustration, no text, 16:9",

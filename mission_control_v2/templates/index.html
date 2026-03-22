@@ -128,7 +128,7 @@
                 <div class="entity-status" id="entity-status"></div>
 
                 <div class="section-label" style="margin-top:18px;font-size:0.62rem;color:var(--accent)">Step 2 — Generate Suggestions</div>
-                <p class="setup-desc">Send entities to Claude AI to suggest fun challenges.</p>
+                <p class="setup-desc">Send entities to Gemini AI to suggest fun challenges.</p>
                 <div class="form-group" style="margin-top:6px;margin-bottom:14px">
                     <label for="input-generation-prompt">Custom Instructions (optional)</label>
                     <textarea id="input-generation-prompt" rows="2" placeholder="e.g. Include a mission for the refrigerator door, focus on upstairs, make them extra silly..." style="width:100%;resize:vertical;"></textarea>
@@ -158,14 +158,9 @@
                 </div>
                 <div class="section-label" style="margin-top:20px">API Keys</div>
                 <div class="form-group">
-                    <label for="input-elevenlabs-key">ElevenLabs API Key</label>
-                    <input type="password" id="input-elevenlabs-key" placeholder="Paste key here">
-                    <span class="field-status" id="status-elevenlabs-key"></span>
-                </div>
-                <div class="form-group" style="margin-top:12px">
-                    <label for="input-openrouter-key">OpenRouter API Key</label>
-                    <input type="password" id="input-openrouter-key" placeholder="Paste key here">
-                    <span class="field-status" id="status-openrouter-key"></span>
+                    <label for="input-gemini-key">Gemini API Key</label>
+                    <input type="password" id="input-gemini-key" placeholder="Paste key here">
+                    <span class="field-status" id="status-gemini-key"></span>
                 </div>
                 <div class="section-label" style="margin-top:20px">Network</div>
                 <div class="form-group">
@@ -207,7 +202,7 @@
                 </div>
 
                 <div class="section-label" style="margin-top:28px">Intro Music</div>
-                <p class="setup-desc">Preview, regenerate, or delete intro music for each theme.</p>
+                <p class="setup-desc">Preview intro music for each theme.</p>
                 <div id="intro-music-list"></div>
 
                 <div class="section-label" style="margin-top:28px">Scene Images</div>

@@ -1,4 +1,5 @@
-"""LLM-powered challenge generator for Mission Control via OpenRouter."""
+"""LLM-powered challenge generator for Mission Control via Gemini API."""
+import asyncio
 import json
 import logging
 
@@ -6,8 +7,7 @@ import aiohttp
 
 logger = logging.getLogger("mission_control.challenge_gen")
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "anthropic/claude-sonnet-4"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 CHALLENGE_PROMPT = """You are generating smart home challenges for a kids' game called Mission Control.
 
@@ -63,40 +63,48 @@ Return ONLY a valid JSON array, no markdown fences, no explanation. Ensure the J
 
 
 class ChallengeGenerator:
-    def __init__(self, api_key: str, model: str = DEFAULT_MODEL):
+    def __init__(self, api_key: str):
         self.api_key = api_key
-        self.model = model
 
-    async def _call_llm(self, messages: list[dict], max_tokens: int = 16384) -> tuple[str, str]:
-        """Call OpenRouter API. Returns (text, finish_reason)."""
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/dcnoren/mission-control",
-            "X-Title": "Mission Control",
-        }
+    async def _call_llm(self, prompt: str, max_tokens: int = 16384) -> tuple[str, str]:
+        """Call Gemini API with retry on rate limits. Returns (text, finish_reason)."""
+        url = f"{GEMINI_URL}?key={self.api_key}"
         payload = {
-            "model": self.model,
-            "max_tokens": max_tokens,
-            "messages": messages,
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": max_tokens},
         }
 
         timeout = aiohttp.ClientTimeout(total=120)
+        max_retries = 4
         async with aiohttp.ClientSession() as session:
-            async with session.post(OPENROUTER_URL, headers=headers, json=payload,
-                                    timeout=timeout) as resp:
-                if resp.status != 200:
-                    body = await resp.text()
-                    logger.error(f"OpenRouter API error {resp.status}: {body[:300]}")
-                    raise RuntimeError(f"OpenRouter API error {resp.status}: {body[:200]}")
+            for attempt in range(max_retries):
+                async with session.post(url, headers={"Content-Type": "application/json"},
+                                        json=payload, timeout=timeout) as resp:
+                    if resp.status == 429:
+                        wait = 2 ** attempt
+                        logger.warning(f"Gemini rate limited, retry {attempt + 1}/{max_retries} in {wait}s")
+                        await asyncio.sleep(wait)
+                        continue
+                    if resp.status != 200:
+                        body = await resp.text()
+                        logger.error(f"Gemini API error {resp.status}: {body[:300]}")
+                        raise RuntimeError(f"Gemini API error {resp.status}: {body[:200]}")
 
-                data = await resp.json()
-                choice = data["choices"][0]
-                text = choice["message"]["content"].strip()
-                finish_reason = choice.get("finish_reason", "stop")
-                model_used = data.get("model", self.model)
-                logger.info(f"OpenRouter response via {model_used}: {len(text)} chars, finish_reason={finish_reason}")
-                return text, finish_reason
+                    data = await resp.json()
+                    break
+            else:
+                raise RuntimeError("Gemini API rate limited after retries")
+
+        candidate = data["candidates"][0]
+        text = candidate["content"]["parts"][0]["text"].strip()
+        finish_reason = candidate.get("finishReason", "STOP")
+        # Map Gemini finish reasons to our internal format
+        if finish_reason == "MAX_TOKENS":
+            finish_reason = "length"
+        else:
+            finish_reason = "stop"
+        logger.info(f"Gemini response: {len(text)} chars, finish_reason={finish_reason}")
+        return text, finish_reason
 
     @staticmethod
     def _parse_json_response(text: str, finish_reason: str) -> any:
@@ -193,13 +201,10 @@ class ChallengeGenerator:
 
         logger.info(
             f"Requesting challenge suggestions for {len(entities)} entities, "
-            f"{len(speakers)} speakers via {self.model}"
+            f"{len(speakers)} speakers"
         )
 
-        text, finish_reason = await self._call_llm(
-            [{"role": "user", "content": prompt}],
-            max_tokens=16384,
-        )
+        text, finish_reason = await self._call_llm(prompt, max_tokens=16384)
 
         suggestions = self._parse_json_response(text, finish_reason)
 
@@ -238,10 +243,7 @@ Only use entity_ids from the provided entities list. No markdown fences."""
 
         logger.info(f"Re-thinking challenge '{challenge.get('name')}' with feedback: {feedback}")
 
-        text, finish_reason = await self._call_llm(
-            [{"role": "user", "content": prompt}],
-            max_tokens=2048,
-        )
+        text, finish_reason = await self._call_llm(prompt, max_tokens=2048)
 
         revised = self._parse_json_response(text, finish_reason)
 
@@ -273,10 +275,7 @@ Targets: {json.dumps(challenge.get('targets', []))}
 
         logger.info(f"Regenerating '{field}' for challenge '{challenge.get('name')}'")
 
-        text, finish_reason = await self._call_llm(
-            [{"role": "user", "content": prompt}],
-            max_tokens=512,
-        )
+        text, finish_reason = await self._call_llm(prompt, max_tokens=512)
 
         text = text.strip().strip('"')
 

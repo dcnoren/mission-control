@@ -35,8 +35,7 @@ services:
     environment:
       - HA_URL=http://homeassistant:8123
       - SERVER_URL=http://localhost:8765
-      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     depends_on:
       ha-setup:
         condition: service_completed_successfully

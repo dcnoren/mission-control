@@ -10,7 +10,7 @@ A cooperative smart home challenge game for kids. Players race around the house 
 
 ## Warnings
 
-- **Unmoderated AI-generated content.** Text, audio, and visual content is generated using a combination of embedded prompts within this project and content influenced by your smart home and device names. The "Challenges" and "Settings" panes offer ways for you to view the generated text which will be converted to audio using ElevenLabs. This content is currently not pre-emptively moderated. This application offers methods to preview and re-generate some, but not all, content.
+- **Unmoderated AI-generated content.** Text, audio, and visual content is generated using a combination of embedded prompts within this project and content influenced by your smart home and device names. The "Challenges" and "Settings" panes offer ways for you to view the generated text which will be converted to audio using Gemini TTS. This content is currently not pre-emptively moderated. This application offers methods to preview and re-generate some, but not all, content.
 
 - **Smart home device control.** This application is designed to interact with your smart home. This can include systems or devices you have present in your Home Assistant instance which you may not want to be tampered with or could cause severe impacts (e.g. garage door openers, connected security systems, yard sprinkler systems, etc). This application is designed to present a menu of suggested challenges for you to review and authorize. Once a challenge is authorized, this application may take action on those devices to "prime" them for the correct state (e.g. turning lights off, to issue a challenge to turn the lights on). **IT IS YOUR RESPONSIBILITY** to review these challenges and **BLACKLIST** any devices which could cause a danger to have an application control.
 
@@ -29,53 +29,50 @@ A cooperative smart home challenge game for kids. Players race around the house 
 
 ## No Pre-Built Media
 
-Mission Control does not ship with any audio, music, or challenge content. All media is generated on-demand using API keys you provide:
+Mission Control does not ship with any voice audio or challenge content. All media is generated on-demand using a Gemini API key you provide:
 
-- **[ElevenLabs](https://elevenlabs.io/)** generates all voice audio (TTS) and theme intro music (sound effects). Required.
-- **[OpenRouter](https://openrouter.ai/)** powers challenge generation via LLM (currently uses Claude Sonnet). Required.
+- **[Google Gemini API](https://ai.google.dev/)** powers everything — TTS voice generation (Gemini 2.5 Flash TTS), challenge generation (Gemini 2.5 Flash), scene image generation (Gemini 3 Pro Image Preview), and theme phrase regeneration.
 
-Once generated, all audio is cached permanently in a Docker volume. The first game with a new set of challenges takes a minute or two to generate audio; subsequent games with the same challenges start near-instantly. In some cases, the content may require additional time to generate, causing early games to start with missing artifacts. Running a few "test" games to start with is recommended to ensure content is properly generated.
+Theme intro music is shipped as static MP3 files — no generation needed.
+
+Once generated, all audio and images are cached permanently in a Docker volume. The first game with a new set of challenges takes a minute or two to generate audio; subsequent games with the same challenges start near-instantly.
+
+### Gemini API Rate Limits
+
+Mission Control uses a single Gemini API key for all AI features. Google applies rate limits based on your billing tier. See the [Gemini API rate limits documentation](https://ai.google.dev/gemini-api/docs/rate-limits) for full details.
+
+**Tier 2 (paid billing enabled)** — effectively unlimited for Mission Control usage. 1,000 RPM for Flash TTS and 10,000 requests per day means audio generation completes in seconds with no throttling.
+
+**Tier 1 (free tier)** — 10 RPM for Flash TTS, 100 requests per day. Mission Control includes adaptive throttling that detects rate limits and automatically backs off. The first game on a new set of challenges will take longer to generate audio (several minutes instead of seconds), but once cached, subsequent games are instant. The daily request limit means you can realistically generate audio for one full game per day on the free tier.
 
 ### API Cost Estimates
 
-> **These are estimates based on pricing at time of writing (March 2026) and may change.** Actual costs depend on your plan tier, usage patterns, and provider pricing changes. **We strongly recommend setting spending limits on both your ElevenLabs and OpenRouter API keys before getting started**, at least until you have a feel for your actual usage.
+> **These are estimates based on pricing at time of writing (March 2026) and may change.** Actual costs depend on your plan tier and provider pricing changes.
 
-#### ElevenLabs (TTS + Sound Effects)
+#### Gemini TTS (Voice Audio)
 
-All voice audio and intro music is generated via ElevenLabs. Nothing ships pre-generated.
+| What | Clips | When | Cached? |
+|------|-------|------|---------|
+| **Intro announcement** | 1 | First game | Yes |
+| **Challenge announcements** (standard + 2 funny variants) | ~3 × rounds | First game with those challenges | Yes |
+| **Hints** (one per challenge) | 1 × rounds | First game | Yes |
+| **Timeout phrases** | 3 per theme | First game per theme | Yes |
+| **Success messages** (precached at 5 time values) | 5 × rounds | First game | Yes |
+| **Outro variants** | ~36 combos | First game | Yes |
 
-| What | Characters / Calls | When | Cached? |
-|------|-------------------|------|---------|
-| **Intro music** (30s clip per theme) | 1 SFX generation per theme | First game per theme | Permanently |
-| **Intro announcement** | ~200 chars | First game | Yes |
-| **Challenge announcements** (standard + 2 funny variants per challenge) | ~150 chars × 3 × rounds played | First game with those challenges | Yes |
-| **Hints** (one per challenge) | ~100 chars × rounds | First game | Yes |
-| **Timeout phrases** | ~100 chars × 3 per theme | First game per theme | Yes |
-| **Success messages** (precached at 5 time values per challenge) | ~100 chars × 5 × rounds | First game | Yes |
-| **Outro variants** (precached across round counts × time totals) | ~200 chars × 36 combos | First game | Yes |
-| **Runtime success/outro** (actual completion times not in precache) | ~100-300 chars per game | Every game | Yes, per unique time |
+**Typical first game (5 rounds):** ~85 unique TTS clips. Gemini Flash TTS pricing is very low — a few cents total for a full game's audio. After the cache is populated, ongoing usage is minimal (only new completion times generate fresh audio).
 
-**Typical first game (5 rounds, single theme):** ~85 unique TTS clips totaling roughly 10,000–15,000 characters. Subsequent games reuse cached audio except for success messages and outros with new completion times (a few hundred characters per game).
+#### Gemini LLM + Image Generation
 
-**Fully populating all 3 themes with 30 challenges:** ~30,000–50,000 characters total. The ElevenLabs free tier includes 10,000 characters/month — enough for about one theme's first game. The Starter plan ($5/month, 30,000 characters) covers most of the initial setup. After the cache is populated, ongoing usage is minimal. Check [ElevenLabs pricing](https://elevenlabs.io/pricing) for current details.
+| What | Model | When | Cached? |
+|------|-------|------|---------|
+| **Challenge generation** (15-20 challenges) | Gemini 2.5 Flash | On-demand in editor | N/A |
+| **Field regeneration** (single field) | Gemini 2.5 Flash | On-demand | N/A |
+| **Scene images** (per room/theme + transitions) | Gemini 3 Pro Image Preview | First game per room/theme | Permanently |
 
-#### OpenRouter (LLM + Image Generation)
+**Estimated first-time cost for 3 themes with 8 rooms:** Challenge generation + ~30 scene images. Total cost is typically under $1 on Gemini pricing. No LLM or image generation calls are made during actual gameplay.
 
-OpenRouter is used for challenge generation via Claude Sonnet ($3/M input, $15/M output tokens) and scene image generation via Gemini 3 Pro Image Preview / Nano Banana Pro ($2/M input, $109/M output tokens effective price, about 1,120 output tokens per image at 1K resolution).
-
-| What | Model | Cost | When | Cached? |
-|------|-------|------|------|---------|
-| **Challenge generation** (15-20 challenges) | Claude Sonnet | $0.07 per generation | On-demand in editor | N/A |
-| **Field regeneration** (single field) | Claude Sonnet | $0.01 per field | On-demand | N/A |
-| **Scene images** (per room per theme + transition + outro) | Gemini | $0.12 per image | First game per room/theme | Permanently |
-
-**Estimated first-time OpenRouter cost for all 3 themes with 8 rooms:** 1 challenge generation ($0.07) + 30 scene images (24 room scenes + 3 transitions + 3 outros at $0.12 each = $3.60) = **about $3.70 total**. No LLM or image generation calls are made during actual gameplay. Ongoing cost is near-zero unless you regenerate challenges or clear the image cache.
-
-Check [OpenRouter pricing](https://openrouter.ai/docs/models) for current model costs — image generation pricing can vary significantly between providers and over time.
-
-#### Total Estimated First-Time Cost
-
-We estimate the total cost to fully set up Mission Control (generate challenges, populate audio cache for one theme, and generate all scene images across 3 themes with 8 rooms) at roughly **$3.70 in OpenRouter usage** plus **10,000–15,000 ElevenLabs characters** (within the free tier for a single theme, or about half the Starter plan's monthly allowance for all 3 themes). After initial setup, ongoing costs per game are negligible.
+Check [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) for current details.
 
 ## How It Works
 
@@ -85,7 +82,7 @@ Download the [`docker-compose.yml`](docker-compose.yml), fill in your credential
 
 ```bash
 curl -O https://raw.githubusercontent.com/dcnoren/mission-control/main/docker-compose.yml
-# Edit docker-compose.yml with your HA URL, tokens, and API keys
+# Edit docker-compose.yml with your HA URL, token, and Gemini API key
 docker compose up -d
 ```
 
@@ -97,7 +94,7 @@ Open **http://localhost:8765** in your browser.
 
 Go to the **Settings** tab and verify:
 - **Home Assistant URL** and **access token** are correct
-- **ElevenLabs** and **OpenRouter API keys** are filled in
+- **Gemini API key** is filled in
 - **Server URL** is set to the LAN-reachable IP of this machine (e.g. `http://192.168.1.100:8765`) — speakers fetch audio from this address, so `localhost` won't work
 
 Click **"Discover Speakers"** to find all `media_player` entities in Home Assistant. Select which speakers the game should use. The **hub speaker** — the main speaker that announces challenges — is selected on the Launch tab.
@@ -176,8 +173,7 @@ All theme intro/outro text, success prefixes, and hint prefixes are editable in 
 
 - [Home Assistant](https://www.home-assistant.io/) with smart devices across rooms
 - Speakers registered as `media_player` entities in HA (Sonos, Google Home, Echo, or any HA-compatible speaker) for the best experience — or use Device Audio mode to play through any browser, or Apple TV mode for TV audio
-- [ElevenLabs](https://elevenlabs.io/) API key — for voice and music generation
-- [OpenRouter](https://openrouter.ai/) API key — for LLM-powered challenge generation
+- [Google Gemini API key](https://ai.google.dev/) — for TTS, challenge generation, and image generation
 - A Home Assistant [long-lived access token](https://www.home-assistant.io/docs/authentication/#your-account-profile)
 - Docker
 
@@ -195,7 +191,7 @@ cd mission-control/mission_control_v2
 docker compose up --build
 ```
 
-Open **http://localhost:8765** and configure your HA URL, API keys, and hub speaker in the Settings tab.
+Open **http://localhost:8765** and configure your HA URL, Gemini API key, and hub speaker in the Settings tab.
 
 ### Configuration Reference
 
@@ -205,8 +201,7 @@ All settings can be configured via environment variables or through the web UI. 
 |---------|---------------------|-------------|
 | Home Assistant URL | `HA_URL` | Your HA instance (e.g. `http://homeassistant.local:8123`) |
 | HA Token | `HA_TOKEN` | Long-lived access token from HA |
-| ElevenLabs Key | `ELEVENLABS_API_KEY` | For voice and music generation |
-| OpenRouter Key | `OPENROUTER_API_KEY` | For LLM challenge generation |
+| Gemini API Key | `GEMINI_API_KEY` | For TTS, challenge generation, and image generation |
 | Server URL | `SERVER_URL` | LAN IP of this machine + port — needed for speakers, Apple TV, and Device Audio to fetch audio files |
 | Speaker Volume | UI only | Global volume for all game audio on speakers (default 40%) |
 
@@ -236,10 +231,9 @@ All entities are toggleable and fire proper `state_changed` WebSocket events. Sp
 - **Mission Control:** http://localhost:8765
 - **Home Assistant:** http://localhost:8123 (login: `dev` / `devdevdev`)
 
-Add your API keys in `dev/.env`:
+Add your Gemini API key in `dev/.env`:
 ```
-ELEVENLABS_API_KEY=sk_...
-OPENROUTER_API_KEY=sk-or-v1-...
+GEMINI_API_KEY=AIza...
 ```
 
 > **Note:** Dev and production both use port 8765. Don't run them simultaneously.
@@ -249,7 +243,7 @@ OPENROUTER_API_KEY=sk-or-v1-...
 - **Backend**: Python (FastAPI + uvicorn), single container
 - **Frontend**: Vanilla HTML/CSS/JS with WebSocket for real-time updates
 - **tvOS App**: Native SwiftUI app communicating via WebSocket
-- **Integrations**: Home Assistant (WebSocket + REST), ElevenLabs (TTS + SFX), OpenRouter (LLM)
+- **Integrations**: Home Assistant (WebSocket + REST), Google Gemini API (TTS, LLM, image generation)
 - **Storage**: Docker named volume (`mc-data`) for config, audio cache, and challenge database
 
 ## License

@@ -2,10 +2,14 @@
 import asyncio
 import base64
 import hashlib
+import io
 import json
 import logging
 import random
+import subprocess
+import tempfile
 import time
+import wave
 from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import urlparse, urlunparse
@@ -16,7 +20,7 @@ from mutagen.mp3 import MP3
 from challenge_db import ChallengeDB
 from challenges import Challenge, Difficulty, Target
 from image_gen import ImageGenerator
-from themes import ALL_THEMES, Theme, VoiceSettings
+from themes import ALL_THEMES, GeminiVoice, Theme
 
 logger = logging.getLogger("mission_control.engine")
 
@@ -24,16 +28,14 @@ ROUND_TIMEOUT = 45
 HINT_TIME = 30
 DEFAULT_SPEAKER_VOLUME = 0.40
 
-ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech"
-ELEVENLABS_SFX_URL = "https://api.elevenlabs.io/v1/sound-generation"
-ELEVENLABS_MODEL = "eleven_multilingual_v2"
+GEMINI_TTS_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent"
+GEMINI_TTS_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 INTRO_MUSIC_VOLUME_RATIO = 0.70  # intro music plays at 70% of speaker volume
 FADE_STEPS = 6
 FADE_STEP_TIME = 0.4
 
 HA_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=15)
-ELEVENLABS_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=60)
 
 MAX_WS_RECONNECT_ATTEMPTS = 3
 
@@ -84,11 +86,62 @@ def _seconds_to_words(time_str: str) -> str:
     return str(n)
 
 
-def _cache_key(text: str, voice_id: str, voice_settings: VoiceSettings | None = None) -> str:
-    """Generate a cache filename from text + voice + settings."""
-    parts = f"{voice_id}:{text}"
-    if voice_settings:
-        parts += f":{voice_settings.stability}:{voice_settings.similarity_boost}:{voice_settings.style}:{voice_settings.speed}"
+class _AdaptiveThrottle:
+    """Adaptive throttle: runs full speed until rate limited, then slows down."""
+    def __init__(self):
+        self._delay: float = 0  # seconds between requests, 0 = no throttle
+        self._lock = asyncio.Lock()
+
+    async def acquire(self):
+        """Wait if throttled."""
+        if self._delay > 0:
+            async with self._lock:
+                await asyncio.sleep(self._delay)
+
+    def back_off(self):
+        """Called on 429 — start throttling."""
+        if self._delay == 0:
+            self._delay = 6.0  # ~10 RPM
+            logger.info(f"TTS throttle engaged: {self._delay}s between requests")
+        else:
+            self._delay = min(self._delay * 1.5, 15.0)
+            logger.info(f"TTS throttle increased: {self._delay:.1f}s between requests")
+
+
+def _pcm_to_mp3(pcm_data: bytes, sample_rate: int = 24000) -> bytes:
+    """Convert raw PCM 16-bit mono audio to MP3 via WAV intermediate."""
+    # Wrap PCM in WAV header
+    wav_buf = io.BytesIO()
+    with wave.open(wav_buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)  # 16-bit
+        wf.setframerate(sample_rate)
+        wf.writeframes(pcm_data)
+    wav_bytes = wav_buf.getvalue()
+
+    # Convert WAV to MP3 via ffmpeg
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wf:
+        wf.write(wav_bytes)
+        wav_path = wf.name
+    mp3_path = wav_path.replace(".wav", ".mp3")
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", wav_path, "-codec:a", "libmp3lame", "-q:a", "2", mp3_path],
+            capture_output=True, check=True,
+        )
+        return Path(mp3_path).read_bytes()
+    except subprocess.CalledProcessError as e:
+        logger.error(f"ffmpeg WAV→MP3 conversion failed: {e.stderr[:200]}")
+        # Fallback: return WAV (still playable by most media_players)
+        return wav_bytes
+    finally:
+        Path(wav_path).unlink(missing_ok=True)
+        Path(mp3_path).unlink(missing_ok=True)
+
+
+def _cache_key(text: str, voice: GeminiVoice) -> str:
+    """Generate a cache filename from text + Gemini voice."""
+    parts = f"{voice.name}:{voice.style_prompt}:{text}"
     h = hashlib.sha256(parts.encode()).hexdigest()[:16]
     return f"{h}.mp3"
 
@@ -108,21 +161,19 @@ class GameEngine:
         self,
         ha_url: str,
         ha_token: str,
-        elevenlabs_api_key: str,
+        gemini_api_key: str,
         broadcast: Callable,
         cache_dir: str = "/app/data/cache",
         server_url: str = "",
-        openrouter_api_key: str = "",
     ):
         self.ha_url = ha_url.rstrip("/")
         self.ha_ws_url = _ha_url_to_ws(self.ha_url)
         self.ha_token = ha_token
-        self.elevenlabs_api_key = elevenlabs_api_key
+        self.gemini_api_key = gemini_api_key
         self.broadcast = broadcast
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.server_url = server_url
-        self.openrouter_api_key = openrouter_api_key
         self.image_gen: ImageGenerator | None = None
 
         self.state_cache: dict[str, str] = {}
@@ -155,6 +206,9 @@ class GameEngine:
         # Challenge database
         self.challenge_db = ChallengeDB()
 
+        # Gemini TTS adaptive throttle — full speed until rate limited
+        self._tts_throttle = _AdaptiveThrottle()
+
     async def _get_http_session(self) -> aiohttp.ClientSession:
         """Get or create a reusable HTTP session."""
         if self._http_session is None or self._http_session.closed:
@@ -169,10 +223,10 @@ class GameEngine:
 
     def _get_image_gen(self) -> ImageGenerator | None:
         """Get or create ImageGenerator if API key is available."""
-        if not self.openrouter_api_key:
+        if not self.gemini_api_key:
             return None
-        if self.image_gen is None or self.image_gen.api_key != self.openrouter_api_key:
-            self.image_gen = ImageGenerator(self.openrouter_api_key, str(self.cache_dir))
+        if self.image_gen is None or self.image_gen.api_key != self.gemini_api_key:
+            self.image_gen = ImageGenerator(self.gemini_api_key, str(self.cache_dir))
         return self.image_gen
 
     def _get_cached_image_url(self, prompt: str) -> str | None:
@@ -249,93 +303,92 @@ class GameEngine:
             return "appletv"
         return speaker
 
-    # --- ElevenLabs Direct TTS ---
+    # --- Gemini TTS ---
 
-    async def generate_tts(self, text: str, voice_id: str, voice_settings: VoiceSettings | None = None) -> str:
-        """Generate TTS audio via ElevenLabs API. Returns cache filename.
+    async def generate_tts(self, text: str, voice: GeminiVoice) -> str:
+        """Generate TTS audio via Gemini 2.5 Flash TTS. Returns cache filename.
         Skips API call if already cached."""
-        filename = _cache_key(text, voice_id, voice_settings)
+        filename = _cache_key(text, voice)
         filepath = self.cache_dir / filename
 
         if filepath.exists() and filepath.stat().st_size > 0:
             logger.debug(f"TTS cache hit: {filename}")
             return filename
 
-        vs = voice_settings or VoiceSettings()
-        url = f"{ELEVENLABS_API_URL}/{voice_id}"
-        headers = {
-            "xi-api-key": self.elevenlabs_api_key,
-            "Content-Type": "application/json",
-            "Accept": "audio/mpeg",
-        }
+        url = f"{GEMINI_TTS_URL}?key={self.gemini_api_key}"
+        # Style prompt prepended to spoken text for character direction
+        full_text = f"{voice.style_prompt}\n\nRead the following text EXACTLY as written, word for word:\n\"{text}\""
         payload = {
-            "text": text,
-            "model_id": ELEVENLABS_MODEL,
-            "voice_settings": {
-                "stability": vs.stability,
-                "similarity_boost": vs.similarity_boost,
-                "style": vs.style,
-                "use_speaker_boost": vs.use_speaker_boost,
+            "contents": [{"parts": [{"text": full_text}]}],
+            "generationConfig": {
+                "responseModalities": ["AUDIO"],
+                "speechConfig": {
+                    "voiceConfig": {
+                        "prebuiltVoiceConfig": {"voiceName": voice.name}
+                    }
+                },
             },
-            "speed": vs.speed,
         }
 
         session = await self._get_http_session()
-        async with session.post(url, headers=headers, json=payload,
-                                timeout=ELEVENLABS_REQUEST_TIMEOUT) as resp:
-            if resp.status == 200:
-                audio_data = await resp.read()
-                filepath.write_bytes(audio_data)
-                logger.info(f"TTS generated: {filename} ({len(audio_data)} bytes)")
-                return filename
-            else:
-                body = await resp.text()
-                logger.error(f"ElevenLabs API error {resp.status}: {body[:200]}")
-                raise RuntimeError(f"ElevenLabs TTS failed: {resp.status}")
+        max_retries = 4
+        for attempt in range(max_retries):
+            await self._tts_throttle.acquire()
+            async with session.post(url, headers={"Content-Type": "application/json"},
+                                    json=payload, timeout=GEMINI_TTS_TIMEOUT) as resp:
+                if resp.status == 429:
+                    self._tts_throttle.back_off()
+                    wait = 2 ** attempt
+                    logger.warning(f"Gemini TTS rate limited, retry {attempt + 1}/{max_retries} in {wait}s")
+                    await asyncio.sleep(wait)
+                    continue
+                if resp.status != 200:
+                    body = await resp.text()
+                    logger.error(f"Gemini TTS error {resp.status}: {body[:200]}")
+                    raise RuntimeError(f"Gemini TTS failed: {resp.status}")
+                result = await resp.json()
+                break
+        else:
+            raise RuntimeError("Gemini TTS failed: rate limited after retries")
 
-    async def generate_intro_music(self, theme_slug: str, prompt: str, variations: list[str] | None = None) -> str:
-        """Generate intro music via ElevenLabs Sound Generation API.
-        Uses a fixed filename per theme so it's only generated once ever."""
-        filename = f"intro_music_{theme_slug}_30s.mp3"
+        # Extract raw PCM from response
+        try:
+            parts = result["candidates"][0]["content"]["parts"]
+            pcm_data = None
+            for part in parts:
+                if "inlineData" in part:
+                    pcm_data = base64.b64decode(part["inlineData"]["data"])
+                    break
+            if not pcm_data:
+                raise RuntimeError("No audio data in Gemini TTS response")
+        except (KeyError, IndexError) as e:
+            raise RuntimeError(f"Unexpected Gemini TTS response: {e}")
+
+        # PCM → WAV → MP3
+        mp3_data = _pcm_to_mp3(pcm_data)
+        filepath.write_bytes(mp3_data)
+        logger.info(f"TTS generated: {filename} ({len(mp3_data)} bytes)")
+        return filename
+
+    def get_intro_music(self, theme_slug: str, static_filename: str) -> str:
+        """Copy static intro music to cache if not present. Returns cache filename."""
+        filename = f"intro_music_{theme_slug}.mp3"
         filepath = self.cache_dir / filename
 
         if filepath.exists() and filepath.stat().st_size > 0:
             logger.info(f"Intro music cache hit: {filename}")
             return filename
 
-        # Add random variation so regeneration produces different results
-        if not variations:
-            variations = [
-                "with building energy", "with a dramatic opening",
-                "starting soft then building", "with punchy percussion",
-            ]
-        variation = random.choice(variations)
-        varied_prompt = f"{prompt}, {variation}"
-        logger.info(f"Music prompt variation: '{variation}'")
-
-        headers = {
-            "xi-api-key": self.elevenlabs_api_key,
-            "Content-Type": "application/json",
-            "Accept": "audio/mpeg",
-        }
-        payload = {
-            "text": varied_prompt,
-            "duration_seconds": 30.0,
-        }
-
-        logger.info(f"Generating intro music for {theme_slug}...")
-        session = await self._get_http_session()
-        async with session.post(ELEVENLABS_SFX_URL, headers=headers, json=payload,
-                                timeout=ELEVENLABS_REQUEST_TIMEOUT) as resp:
-            if resp.status == 200:
-                audio_data = await resp.read()
-                filepath.write_bytes(audio_data)
-                logger.info(f"Intro music generated: {filename} ({len(audio_data)} bytes)")
-                return filename
-            else:
-                body = await resp.text()
-                logger.error(f"ElevenLabs SFX error {resp.status}: {body[:200]}")
-                return ""
+        # Copy from static/audio/
+        src = Path(__file__).parent / "static" / "audio" / static_filename
+        if src.exists():
+            import shutil
+            shutil.copy2(src, filepath)
+            logger.info(f"Intro music copied: {filename} ({filepath.stat().st_size} bytes)")
+            return filename
+        else:
+            logger.error(f"Static intro music not found: {src}")
+            return ""
 
     async def fade_out_speaker(self, speaker: str, start_volume: float):
         """Gradually fade out a speaker's volume."""
@@ -412,31 +465,31 @@ class GameEngine:
                          intro_text: str, outro_template: str):
         """Build the full list of clips needed and populate _announcement_options.
         Returns (critical_clips, remaining_clips) where critical = intro + first challenge.
-        Each clip is a (text, voice_id, voice_settings) triple."""
-        ann_vs = theme.announcer_voice_settings
-        cel_vs = theme.celebration_voice_settings
-        all_clips: list[tuple[str, str, VoiceSettings]] = []
+        Each clip is a (text, GeminiVoice) pair."""
+        ann = theme.announcer_voice
+        cel = theme.celebration_voice
+        all_clips: list[tuple[str, GeminiVoice]] = []
         self._announcement_options: dict[str, list[str]] = {}
 
         # Intro
-        all_clips.append((intro_text, theme.announcer_voice, ann_vs))
+        all_clips.append((intro_text, ann))
 
         # Per-challenge: build wrapped announcements
         for c in challenges:
             options = []
             wrapped = theme.wrap_announcement(c.announcement)
             options.append(wrapped)
-            all_clips.append((wrapped, theme.announcer_voice, ann_vs))
+            all_clips.append((wrapped, ann))
             for funny in c.funny_announcements:
                 wrapped_funny = theme.wrap_announcement(funny)
                 options.append(wrapped_funny)
-                all_clips.append((wrapped_funny, theme.announcer_voice, ann_vs))
+                all_clips.append((wrapped_funny, ann))
             self._announcement_options[c.name] = options
-            all_clips.append((theme.wrap_hint(c.hint), theme.announcer_voice, ann_vs))
+            all_clips.append((theme.wrap_hint(c.hint), ann))
 
         # Timeout phrases
         for phrase in theme.timeout_phrases:
-            all_clips.append((phrase, theme.announcer_voice, ann_vs))
+            all_clips.append((phrase, ann))
 
         # Success prefix variants (precache a few common combos)
         for c in challenges:
@@ -444,7 +497,7 @@ class GameEngine:
             for t in spoken_times:
                 spoken = _seconds_to_words(t)
                 success_msg = c.success_message.format(time=spoken)
-                all_clips.append((theme.wrap_success(success_msg), theme.celebration_voice, cel_vs))
+                all_clips.append((theme.wrap_success(success_msg), cel))
 
         # Outro variants
         for completed in range(0, len(challenges) + 1):
@@ -452,52 +505,55 @@ class GameEngine:
                 spoken_total = _seconds_to_words(total)
                 all_clips.append((
                     outro_template.format(total_time=spoken_total, rounds=completed),
-                    theme.celebration_voice,
-                    cel_vs,
+                    cel,
                 ))
 
         # Deduplicate
         seen = set()
         unique_clips = []
-        for text, voice, vs in all_clips:
-            key = _cache_key(text, voice, vs)
+        for text, voice in all_clips:
+            key = _cache_key(text, voice)
             if key not in seen:
                 seen.add(key)
-                unique_clips.append((text, voice, vs))
+                unique_clips.append((text, voice))
 
         # Split: intro + first challenge clips are critical
-        critical_keys = {_cache_key(intro_text, theme.announcer_voice, ann_vs)}
+        critical_keys = {_cache_key(intro_text, ann)}
         if challenges:
             c = challenges[0]
             for opt in self._announcement_options.get(c.name, []):
-                critical_keys.add(_cache_key(opt, theme.announcer_voice, ann_vs))
-            critical_keys.add(_cache_key(theme.wrap_hint(c.hint), theme.announcer_voice, ann_vs))
+                critical_keys.add(_cache_key(opt, ann))
+            critical_keys.add(_cache_key(theme.wrap_hint(c.hint), ann))
 
-        critical = [(t, v, vs) for t, v, vs in unique_clips if _cache_key(t, v, vs) in critical_keys]
-        remaining = [(t, v, vs) for t, v, vs in unique_clips if _cache_key(t, v, vs) not in critical_keys]
+        critical = [(t, v) for t, v in unique_clips if _cache_key(t, v) in critical_keys]
+        remaining = [(t, v) for t, v in unique_clips if _cache_key(t, v) not in critical_keys]
 
         return critical, remaining
 
-    async def _generate_and_upload(self, clips: list[tuple[str, str, VoiceSettings]], label: str = ""):
-        """Generate TTS and upload to HA for a list of (text, voice_id, voice_settings) clips."""
+    async def _generate_and_upload(self, clips: list[tuple[str, GeminiVoice]], label: str = ""):
+        """Generate TTS and upload to HA for a list of (text, GeminiVoice) clips."""
         to_generate = []
-        for text, voice, vs in clips:
-            filename = _cache_key(text, voice, vs)
+        for text, voice in clips:
+            filename = _cache_key(text, voice)
             filepath = self.cache_dir / filename
             if not filepath.exists() or filepath.stat().st_size == 0:
-                to_generate.append((text, voice, vs))
+                to_generate.append((text, voice))
 
         if label:
             logger.info(f"Audio {label}: {len(clips)} clips, {len(to_generate)} to generate")
 
         sem = asyncio.Semaphore(3)
 
-        async def gen(text, voice, vs):
+        async def gen(text, voice):
+            if self.stop_requested:
+                return
             async with sem:
-                await self.generate_tts(text, voice, vs)
+                if self.stop_requested:
+                    return
+                await self.generate_tts(text, voice)
 
         if to_generate:
-            await asyncio.gather(*[gen(t, v, vs) for t, v, vs in to_generate])
+            await asyncio.gather(*[gen(t, v) for t, v in to_generate])
 
         # Upload to HA (skip in local mode — browser plays directly from server)
         if not self.local_mode:
@@ -510,7 +566,7 @@ class GameEngine:
                     except Exception as e:
                         logger.error(f"Upload failed for {fn}: {e}")
 
-            all_filenames = [_cache_key(t, v, vs) for t, v, vs in clips]
+            all_filenames = [_cache_key(t, v) for t, v in clips]
             await asyncio.gather(*[upload(fn) for fn in all_filenames])
 
     async def precache_critical_audio(self, theme: Theme, challenges: list[Challenge],
@@ -534,7 +590,7 @@ class GameEngine:
         else:
             self._bg_cache_task = None
 
-    async def _background_cache(self, clips: list[tuple[str, str, VoiceSettings]]):
+    async def _background_cache(self, clips: list[tuple[str, GeminiVoice]]):
         """Background task to generate and upload remaining audio clips."""
         try:
             await self._generate_and_upload(clips, label="background")
@@ -584,12 +640,12 @@ class GameEngine:
         """Signal inter-round advancement from the dashboard."""
         self.advance_event.set()
 
-    async def play_cached_audio(self, speaker: str, text: str, voice_id: str, voice_settings: VoiceSettings | None = None):
+    async def play_cached_audio(self, speaker: str, text: str, voice: GeminiVoice):
         """Play cached TTS audio on a speaker (Sonos or Apple TV)."""
         resolved = self._resolve_speaker(speaker)
 
         # Generate/fetch audio
-        filename = await self.generate_tts(text, voice_id, voice_settings)
+        filename = await self.generate_tts(text, voice)
         filepath = self.cache_dir / filename
 
         # Apple TV path: broadcast audio URL for tvOS app
@@ -819,7 +875,6 @@ class GameEngine:
                     self.hub_speaker,
                     hint_text,
                     theme.announcer_voice,
-                    theme.announcer_voice_settings,
                 )
                 # Pause timer during hint playback so it doesn't jump forward
                 start_time += time.time() - hint_start
@@ -935,8 +990,8 @@ class GameEngine:
 
             # Generate intro music (only first time per theme, then cached forever)
             music_file = ""
-            if theme.intro_music_prompt:
-                music_file = await self.generate_intro_music(theme.slug, theme.intro_music_prompt, theme.intro_music_variations)
+            if theme.intro_music_file:
+                music_file = self.get_intro_music(theme.slug, theme.intro_music_file)
 
             # Use pre-cached intro image if available (never block on generation)
             intro_image_url = self._get_cached_image_url(theme.intro_scene_prompt) if theme.intro_scene_prompt else None
@@ -999,7 +1054,7 @@ class GameEngine:
 
             # Intro TTS
             await self.broadcast({"type": "game_started", "total_rounds": len(challenges)})
-            await self.play_cached_audio(hub, intro_text, theme.announcer_voice, theme.announcer_voice_settings)
+            await self.play_cached_audio(hub, intro_text, theme.announcer_voice)
 
             total_time = 0
             for i, challenge in enumerate(challenges):
@@ -1043,7 +1098,7 @@ class GameEngine:
 
                 # In Apple TV mode, broadcast audio URL with round_starting for tvOS app
                 if self.appletv_mode and self._resolve_speaker(self.hub_speaker) == "appletv":
-                    filename = await self.generate_tts(announcement, theme.announcer_voice, theme.announcer_voice_settings)
+                    filename = await self.generate_tts(announcement, theme.announcer_voice)
                     audio_url = f"{self.server_url}/audio/{filename}"
                     audio_path = str(self.cache_dir / filename)
                     duration = _get_mp3_duration(audio_path)
@@ -1060,7 +1115,6 @@ class GameEngine:
                         self.hub_speaker,
                         announcement,
                         theme.announcer_voice,
-                        theme.announcer_voice_settings,
                     )
 
                 # Monitor
@@ -1078,7 +1132,6 @@ class GameEngine:
                         challenge.success_speaker,
                         success_text,
                         theme.celebration_voice,
-                        theme.celebration_voice_settings,
                     )
                     await self.broadcast({"type": "round_complete", **result})
                 elif result["status"] == "skipped":
@@ -1090,7 +1143,6 @@ class GameEngine:
                         self.hub_speaker,
                         timeout_text,
                         theme.announcer_voice,
-                        theme.announcer_voice_settings,
                     )
                     await self.broadcast({"type": "round_complete", **result})
                 elif result["status"] == "stopped":
@@ -1115,7 +1167,10 @@ class GameEngine:
 
             # Ensure background cache is done before finale (outro needs its audio)
             if hasattr(self, '_bg_cache_task') and self._bg_cache_task:
-                await self._bg_cache_task
+                if self.stop_requested:
+                    self._bg_cache_task.cancel()
+                else:
+                    await self._bg_cache_task
                 self._bg_cache_task = None
 
             # Finale
@@ -1140,7 +1195,7 @@ class GameEngine:
                 outro_resolved = self._resolve_speaker(self.hub_speaker)
                 if outro_resolved not in ("appletv", "local"):
                     await self.set_volume(outro_resolved, self.speaker_volume)
-                await self.play_cached_audio(self.hub_speaker, outro, theme.celebration_voice, theme.celebration_voice_settings)
+                await self.play_cached_audio(self.hub_speaker, outro, theme.celebration_voice)
 
                 await self.broadcast({
                     "type": "game_finished",

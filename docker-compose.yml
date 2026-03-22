@@ -8,8 +8,7 @@ services:
     environment:
       - HA_URL=http://homeassistant.local:8123
       - HA_TOKEN=your_long_lived_access_token
-      - ELEVENLABS_API_KEY=sk_...
-      - OPENROUTER_API_KEY=sk-or-v1-...
+      - GEMINI_API_KEY=AIza...
       - SERVER_URL=http://your-docker-host-ip:8765
     restart: unless-stopped
 

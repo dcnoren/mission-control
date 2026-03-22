@@ -8,8 +8,7 @@ services:
     environment:
       - HA_URL=${HA_URL:-http://homeassistant.local:8123}
       - HA_TOKEN=${HA_TOKEN}
-      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     restart: unless-stopped
 
 volumes:

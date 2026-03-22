@@ -1,6 +1,6 @@
 # Mission Control
 
-Cooperative smart home challenge game for kids using Home Assistant, ElevenLabs TTS, and speakers registered as `media_player` entities (Sonos, Google Home, Echo, etc.). Optional Apple TV companion mode via native tvOS app.
+Cooperative smart home challenge game for kids using Home Assistant, Gemini TTS, and speakers registered as `media_player` entities (Sonos, Google Home, Echo, etc.). Optional Apple TV companion mode via native tvOS app.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ Cooperative smart home challenge game for kids using Home Assistant, ElevenLabs 
 - **Frontend**: Vanilla HTML/CSS/JS with browser WebSocket for real-time updates
 - **tvOS App**: SwiftUI app connects via WebSocket for Apple TV display + audio
 - **Infrastructure**: Docker container, data persisted in named volume (`mc-data`)
-- **Integrations**: Home Assistant (WebSocket + REST), ElevenLabs (TTS + SFX), OpenRouter (LLM + image generation)
+- **Integrations**: Home Assistant (WebSocket + REST), Gemini API (TTS, LLM challenge gen, image gen)
 - **Storage**: `/app/data/` — `config.json`, `challenges.db` (SQLite), `cache/` (audio + images)
 
 ## Key Files
@@ -17,9 +17,9 @@ Cooperative smart home challenge game for kids using Home Assistant, ElevenLabs 
 - `mission_control_v2/server.py` — FastAPI endpoints, WebSocket broadcast, config persistence, theme phrase overrides
 - `mission_control_v2/challenges.py` — Challenge data model with targets, speakers, pre-setup steps
 - `mission_control_v2/challenge_db.py` — SQLite-backed challenge storage (replaced legacy JSON)
-- `mission_control_v2/challenge_gen.py` — LLM-powered challenge generation via OpenRouter (Claude Sonnet)
-- `mission_control_v2/image_gen.py` — AI scene image generation via OpenRouter (Gemini 3 Pro Image Preview), hash-based caching
-- `mission_control_v2/themes.py` — Theme definitions (Mission Control, Bluey, Snoop & Sniffy) with voice IDs, intros, outros
+- `mission_control_v2/challenge_gen.py` — LLM-powered challenge generation via Gemini 2.5 Flash
+- `mission_control_v2/image_gen.py` — AI scene image generation via Gemini API, hash-based caching
+- `mission_control_v2/themes.py` — Theme definitions (Mission Control, Bluey, Snoop & Sniffy) with Gemini voice configs, intros, outros
 - `mission_control_v2/static/js/app.js` — Web dashboard UI logic
 - `mission_control_v2/templates/index.html` — Single-page HTML template
 - `MissionControlTV/` — Xcode tvOS app project (SwiftUI)
@@ -28,7 +28,7 @@ Cooperative smart home challenge game for kids using Home Assistant, ElevenLabs 
 
 1. User picks theme, rounds, difficulty on web dashboard
 2. Engine connects to HA WebSocket, caches entity states
-3. Intro music plays (ElevenLabs SFX, 30s), critical audio precached in parallel
+3. Intro music plays (static MP3, 30s), critical audio precached in parallel
 4. Intro TTS announcement, then rounds begin (remaining audio caches in background)
 5. Each round: pre-setup entities → announce challenge → monitor HA for completion (45s timeout, hint at 30s) → success announcement on room speaker
 6. Finale with stats, then restore all entity states
@@ -63,7 +63,7 @@ Configurable via Settings UI slider (default 40%, persisted in config) and an in
 
 ## Config
 
-Persisted in `/app/data/config.json`. API keys (ElevenLabs, OpenRouter, HA token) set via Settings panel or environment variables. `server_url` must be the LAN-reachable address for audio file serving. `speaker_volume` is UI-only (no env var).
+Persisted in `/app/data/config.json`. API keys (Gemini, HA token) set via Settings panel or environment variables. `server_url` must be the LAN-reachable address for audio file serving. `speaker_volume` is UI-only (no env var).
 
 ## Theme Phrase Overrides
 
@@ -95,6 +95,6 @@ Theme text (intros, outros, prefixes, hints, timeouts) is editable via the Setti
 - `needs_change_event` pattern: entities already in target state must leave and return before counting as complete
 - Background audio caching: critical path (intro + first challenge) blocks, rest generates concurrently during gameplay
 - Intro music: non-blocking broadcast, minimum 15s play time, fade out before voice intro
-- Scene images: generated via OpenRouter (Gemini), cached by hash of prompt in `/app/data/cache/`
-- ElevenLabs voices: changing voice IDs in themes.py automatically invalidates cached audio (voice ID is part of the hash)
-- Exclamation marks in theme text can cause stilted audio on some ElevenLabs voices (e.g. Daniel), but work well with animation-style voices like Ruby Roo
+- Scene images: generated via Gemini API, cached by hash of prompt in `/app/data/cache/`
+- Gemini TTS voices: Orus (Mission Control), Leda (Bluey), Fenrir (Bluey Dad + Snoop). Changing voice name or style prompt in themes.py invalidates cached audio (both are part of the hash)
+- Intro music: static MP3s shipped in `static/audio/`, copied to cache on first use

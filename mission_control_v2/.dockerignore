@@ -1,0 +1,12 @@
+.env
+*.env
+docker-compose*.yml
+Dockerfile
+.dockerignore
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+analyze_audio.py
+video_gen.py

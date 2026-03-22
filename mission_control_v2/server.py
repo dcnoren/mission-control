@@ -108,8 +108,7 @@ async def lifespan(app: FastAPI):
     config = load_config()
     ha_url = config.get("ha_url") or os.environ.get("HA_URL", "http://homeassistant.local:8123")
     ha_token = config.get("ha_token") or os.environ.get("HA_TOKEN", "")
-    elevenlabs_key = config.get("elevenlabs_api_key") or os.environ.get("ELEVENLABS_API_KEY", "")
-    openrouter_key = config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
+    gemini_key = config.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
     server_url = config.get("server_url") or os.environ.get("SERVER_URL", "")
 
     # Persist env var values into config so the UI shows them as configured
@@ -117,8 +116,7 @@ async def lifespan(app: FastAPI):
     for key, val in [
         ("ha_url", ha_url),
         ("ha_token", ha_token),
-        ("elevenlabs_api_key", elevenlabs_key),
-        ("openrouter_api_key", openrouter_key),
+        ("gemini_api_key", gemini_key),
         ("server_url", server_url),
     ]:
         if val and not config.get(key):
@@ -137,11 +135,10 @@ async def lifespan(app: FastAPI):
     engine = GameEngine(
         ha_url=ha_url,
         ha_token=ha_token,
-        elevenlabs_api_key=elevenlabs_key,
+        gemini_api_key=gemini_key,
         broadcast=broadcast,
         cache_dir=str(CACHE_DIR),
         server_url=server_url,
-        openrouter_api_key=openrouter_key,
     )
 
     engine.speaker_volume = config.get("speaker_volume", 0.40)
@@ -178,8 +175,7 @@ class StartRequest(BaseModel):
 class ConfigRequest(BaseModel):
     ha_url: str | None = None
     ha_token: str | None = None
-    elevenlabs_api_key: str | None = None
-    openrouter_api_key: str | None = None
+    gemini_api_key: str | None = None
     hub_speaker: str | None = None
     server_url: str | None = None
     speaker_volume: float | None = None
@@ -212,8 +208,7 @@ async def get_config():
     return {
         "ha_url": config.get("ha_url", ""),
         "ha_token_set": bool(config.get("ha_token") or os.environ.get("HA_TOKEN")),
-        "elevenlabs_api_key_set": bool(config.get("elevenlabs_api_key") or os.environ.get("ELEVENLABS_API_KEY")),
-        "openrouter_api_key_set": bool(config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY")),
+        "gemini_api_key_set": bool(config.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY")),
         "hub_speaker": config.get("hub_speaker", ""),
         "server_url": config.get("server_url", ""),
         "cached_audio_files": len(cached_files),
@@ -239,13 +234,9 @@ async def update_config(req: ConfigRequest):
         config["ha_token"] = req.ha_token
         engine.ha_token = req.ha_token
 
-    if req.elevenlabs_api_key is not None:
-        config["elevenlabs_api_key"] = req.elevenlabs_api_key
-        engine.elevenlabs_api_key = req.elevenlabs_api_key
-
-    if req.openrouter_api_key is not None:
-        config["openrouter_api_key"] = req.openrouter_api_key
-        engine.openrouter_api_key = req.openrouter_api_key
+    if req.gemini_api_key is not None:
+        config["gemini_api_key"] = req.gemini_api_key
+        engine.gemini_api_key = req.gemini_api_key
 
     if req.hub_speaker is not None:
         config["hub_speaker"] = req.hub_speaker
@@ -345,7 +336,7 @@ async def list_intro_music():
     """List intro music status for each theme."""
     result = []
     for slug, theme in ALL_THEMES.items():
-        filename = f"intro_music_{slug}_30s.mp3"
+        filename = f"intro_music_{slug}.mp3"
         filepath = CACHE_DIR / filename
         exists = filepath.exists() and filepath.stat().st_size > 0
         result.append({
@@ -354,7 +345,7 @@ async def list_intro_music():
             "filename": filename,
             "exists": exists,
             "size": filepath.stat().st_size if exists else 0,
-            "prompt": theme.intro_music_prompt,
+            "static_file": theme.intro_music_file,
             "audio_url": f"/audio/{filename}?t={int(filepath.stat().st_mtime)}" if exists else None,
         })
     return {"music": result}
@@ -362,46 +353,18 @@ async def list_intro_music():
 
 @app.post("/api/intro-music/{theme_slug}/generate")
 async def generate_intro_music(theme_slug: str):
-    """Generate (or regenerate) intro music for a theme."""
-    if engine.running:
-        return JSONResponse({"error": "Cannot generate while game is running"}, status_code=409)
-
-    if not engine.elevenlabs_api_key:
-        return JSONResponse({"error": "ElevenLabs API key not configured"}, status_code=400)
-
+    """Get intro music status for a theme (static MP3 shipped with app)."""
     theme = ALL_THEMES.get(theme_slug)
     if not theme:
         return JSONResponse({"error": f"Unknown theme: {theme_slug}"}, status_code=404)
 
-    if not theme.intro_music_prompt:
-        return JSONResponse({"error": f"Theme {theme_slug} has no music prompt"}, status_code=400)
+    if not theme.intro_music_file:
+        return JSONResponse({"error": f"Theme {theme_slug} has no intro music"}, status_code=400)
 
-    # Delete existing file so it regenerates
-    filename = f"intro_music_{theme_slug}_30s.mp3"
-    filepath = CACHE_DIR / filename
-    if filepath.exists():
-        filepath.unlink()
-
-    try:
-        result = await engine.generate_intro_music(theme_slug, theme.intro_music_prompt, theme.intro_music_variations)
-        if result:
-            return {"status": "generated", "filename": result, "audio_url": f"/audio/{result}"}
-        else:
-            return JSONResponse({"error": "Generation failed"}, status_code=500)
-    except Exception as e:
-        logger.error(f"Intro music generation failed: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-
-@app.delete("/api/intro-music/{theme_slug}")
-async def delete_intro_music(theme_slug: str):
-    """Delete cached intro music for a theme."""
-    filename = f"intro_music_{theme_slug}_30s.mp3"
-    filepath = CACHE_DIR / filename
-    if filepath.exists():
-        filepath.unlink()
-        return {"status": "deleted", "filename": filename}
-    return {"status": "not_found"}
+    filename = engine.get_intro_music(theme_slug, theme.intro_music_file)
+    if filename:
+        return {"status": "available", "filename": filename, "audio_url": f"/audio/{filename}"}
+    return JSONResponse({"error": "Intro music file not found"}, status_code=404)
 
 
 # --- Theme Phrases ---
@@ -548,9 +511,9 @@ class PhraseRegenerateRequest(BaseModel):
 async def regenerate_theme_phrase(req: PhraseRegenerateRequest):
     """Regenerate a single phrase via LLM."""
     config = load_config()
-    openrouter_key = config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
-    if not openrouter_key:
-        return JSONResponse({"error": "OpenRouter API key not configured"}, status_code=400)
+    gemini_key = config.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        return JSONResponse({"error": "Gemini API key not configured"}, status_code=400)
 
     theme = ALL_THEMES.get(req.theme_slug)
     if not theme:
@@ -600,22 +563,17 @@ Match the tone and style of these existing phrases for this theme:
 Return ONLY the new phrase text, nothing else. No quotes, no explanation."""
 
     try:
-        headers = {
-            "Authorization": f"Bearer {openrouter_key}",
-            "Content-Type": "application/json",
-        }
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+        prompt = f"{system_prompt}\n\nWrite a new variation. The phrase it's replacing was: \"{old_phrase}\""
         payload = {
-            "model": "google/gemini-2.5-flash",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Write a new variation. The phrase it's replacing was: \"{old_phrase}\""},
-            ],
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": 100},
         }
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                json=payload, headers=headers,
+                gemini_url, json=payload,
+                headers={"Content-Type": "application/json"},
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 if resp.status != 200:
@@ -623,7 +581,7 @@ Return ONLY the new phrase text, nothing else. No quotes, no explanation."""
                     return JSONResponse({"error": f"LLM failed: {body[:200]}"}, status_code=500)
                 data = await resp.json()
 
-        new_text = data["choices"][0]["message"]["content"].strip().strip('"')
+        new_text = data["candidates"][0]["content"]["parts"][0]["text"].strip().strip('"')
 
         # Save the override
         overrides = config.setdefault("theme_phrases", {})
@@ -679,9 +637,9 @@ def _apply_phrase_overrides():
 # --- Scene Image Management ---
 
 def _get_image_gen() -> ImageGenerator | None:
-    """Get an ImageGenerator using the configured OpenRouter key."""
+    """Get an ImageGenerator using the configured Gemini key."""
     config = load_config()
-    api_key = config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
+    api_key = config.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         return None
     return ImageGenerator(api_key, str(CACHE_DIR))
@@ -735,7 +693,7 @@ async def generate_scene_image(theme_slug: str = "", image_type: str = ""):
 
     gen = _get_image_gen()
     if not gen:
-        return JSONResponse({"error": "OpenRouter API key not configured"}, status_code=400)
+        return JSONResponse({"error": "Gemini API key not configured"}, status_code=400)
 
     # Find the matching prompt
     for info in _get_all_image_prompts():
@@ -758,7 +716,7 @@ async def generate_all_scene_images():
 
     gen = _get_image_gen()
     if not gen:
-        return JSONResponse({"error": "OpenRouter API key not configured"}, status_code=400)
+        return JSONResponse({"error": "Gemini API key not configured"}, status_code=400)
 
     generated = 0
     cached = 0
@@ -781,7 +739,7 @@ async def delete_scene_image(theme_slug: str = "", image_type: str = ""):
     """Delete a cached scene image."""
     gen = _get_image_gen()
     if not gen:
-        return JSONResponse({"error": "OpenRouter API key not configured"}, status_code=400)
+        return JSONResponse({"error": "Gemini API key not configured"}, status_code=400)
 
     for info in _get_all_image_prompts():
         if info["theme"] == theme_slug and info["type"] == image_type:
@@ -796,7 +754,7 @@ async def delete_all_scene_images():
     """Delete all cached scene images."""
     gen = _get_image_gen()
     if not gen:
-        return JSONResponse({"error": "OpenRouter API key not configured"}, status_code=400)
+        return JSONResponse({"error": "Gemini API key not configured"}, status_code=400)
 
     deleted = 0
     for info in _get_all_image_prompts():
@@ -872,8 +830,8 @@ async def start_game(req: StartRequest):
     if engine.running:
         return JSONResponse({"error": "Game already running"}, status_code=409)
 
-    if not engine.elevenlabs_api_key:
-        return JSONResponse({"error": "ElevenLabs API key not configured."}, status_code=400)
+    if not engine.gemini_api_key:
+        return JSONResponse({"error": "Gemini API key not configured."}, status_code=400)
 
     # Clamp rounds to valid range (up to 50 for dynamic challenges)
     rounds = max(1, min(req.rounds, 50))
@@ -1116,13 +1074,13 @@ class SuggestRequest(BaseModel):
 
 @app.post("/api/challenges/suggest")
 async def suggest_challenges(req: SuggestRequest):
-    """Send entities to LLM via OpenRouter for challenge suggestions."""
+    """Send entities to LLM via Gemini for challenge suggestions."""
     global pending_suggestions
 
     config = load_config()
-    openrouter_key = config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
-    if not openrouter_key:
-        return JSONResponse({"error": "OpenRouter API key not configured"}, status_code=400)
+    gemini_key = config.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        return JSONResponse({"error": "Gemini API key not configured"}, status_code=400)
 
     # If entities/speakers not provided, fetch them
     entities = req.entities
@@ -1202,7 +1160,7 @@ async def suggest_challenges(req: SuggestRequest):
         })
 
     try:
-        generator = ChallengeGenerator(openrouter_key)
+        generator = ChallengeGenerator(gemini_key)
         suggestions = await generator.suggest(
             entities, speakers, hub_speaker,
             user_prompt=req.user_prompt or "",
@@ -1271,14 +1229,14 @@ class RethinkRequest(BaseModel):
 
 @app.post("/api/challenges/rethink")
 async def rethink_challenge(req: RethinkRequest):
-    """Re-think a single challenge with user feedback via OpenRouter."""
+    """Re-think a single challenge with user feedback via Gemini."""
     if req.challenge_id not in pending_suggestions:
         return JSONResponse({"error": "Challenge not found in pending suggestions"}, status_code=404)
 
     config = load_config()
-    openrouter_key = config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
-    if not openrouter_key:
-        return JSONResponse({"error": "OpenRouter API key not configured"}, status_code=400)
+    gemini_key = config.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        return JSONResponse({"error": "Gemini API key not configured"}, status_code=400)
 
     challenge = pending_suggestions[req.challenge_id]
     hub_speaker = config.get("hub_speaker", "media_player.hub_speaker")
@@ -1302,7 +1260,7 @@ async def rethink_challenge(req: RethinkRequest):
             speakers = speakers_resp
 
     try:
-        generator = ChallengeGenerator(openrouter_key)
+        generator = ChallengeGenerator(gemini_key)
         revised = await generator.rethink(challenge, req.feedback, entities, speakers, hub_speaker)
     except Exception as e:
         logger.error(f"Rethink failed: {e}")
@@ -1325,9 +1283,9 @@ class RegenerateFieldRequest(BaseModel):
 async def regenerate_field(req: RegenerateFieldRequest):
     """Regenerate a single text field of a challenge via LLM."""
     config = load_config()
-    openrouter_key = config.get("openrouter_api_key") or os.environ.get("OPENROUTER_API_KEY", "")
-    if not openrouter_key:
-        return JSONResponse({"error": "OpenRouter API key not configured"}, status_code=400)
+    gemini_key = config.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
+    if not gemini_key:
+        return JSONResponse({"error": "Gemini API key not configured"}, status_code=400)
 
     # Find the challenge
     if req.source == "pending" and req.challenge_id in pending_suggestions:
@@ -1341,7 +1299,7 @@ async def regenerate_field(req: RegenerateFieldRequest):
         return JSONResponse({"error": "Challenge not found"}, status_code=404)
 
     try:
-        generator = ChallengeGenerator(openrouter_key)
+        generator = ChallengeGenerator(gemini_key)
         new_value = await generator.regenerate_field(challenge, req.field)
     except Exception as e:
         logger.error(f"Regenerate field failed: {e}")
@@ -1404,36 +1362,6 @@ async def clear_blacklist():
     """Clear the entire blacklist."""
     challenge_db.clear_blacklist()
     return {"status": "cleared"}
-
-
-@app.get("/api/elevenlabs/voices")
-async def list_elevenlabs_voices():
-    """Proxy ElevenLabs voices endpoint for browsing available voices."""
-    api_key = config.get("elevenlabs_api_key", "")
-    if not api_key:
-        return JSONResponse({"error": "ElevenLabs API key not configured"}, status_code=400)
-
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            "https://api.elevenlabs.io/v1/voices",
-            headers={"xi-api-key": api_key},
-        ) as resp:
-            if resp.status != 200:
-                body = await resp.text()
-                return JSONResponse({"error": f"ElevenLabs API error: {body[:200]}"}, status_code=resp.status)
-            data = await resp.json()
-
-    voices = [
-        {
-            "voice_id": v.get("voice_id"),
-            "name": v.get("name"),
-            "category": v.get("category"),
-            "labels": v.get("labels", {}),
-            "preview_url": v.get("preview_url"),
-        }
-        for v in data.get("voices", [])
-    ]
-    return {"voices": voices}
 
 
 @app.websocket("/ws")
