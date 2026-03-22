@@ -90,6 +90,10 @@ const App = {
             // Show set/unset status for secret fields
             this.updateSecretStatus('status-ha-token', config.ha_token_set);
             this.updateSecretStatus('status-gemini-key', config.gemini_api_key_set);
+
+            // Debug logging state
+            this.debugLogging = config.debug_logging || false;
+            this.updateDebugLogUI();
         } catch (err) {
             console.error('Failed to load config:', err);
         }
@@ -480,6 +484,21 @@ const App = {
                 alert('Game error: ' + data.message);
                 this.showScreen('setup');
                 break;
+
+            case 'log_lines':
+                if (this.debugLogging) {
+                    const el = document.getElementById('debug-log-output');
+                    if (!el) break;
+                    const wasAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+                    el.textContent += data.lines.join('\n') + '\n';
+                    if (wasAtBottom) el.scrollTop = el.scrollHeight;
+                    // Cap displayed lines
+                    const lines = el.textContent.split('\n');
+                    if (lines.length > 2000) {
+                        el.textContent = lines.slice(-2000).join('\n');
+                    }
+                }
+                break;
         }
     },
 
@@ -526,6 +545,7 @@ const App = {
         document.getElementById('btn-advance').addEventListener('click', () => this.advanceMission());
         document.getElementById('btn-play-again').addEventListener('click', () => this.showScreen('setup'));
         document.getElementById('btn-save-config').addEventListener('click', () => this.saveConfig());
+        document.getElementById('btn-toggle-debug-log').addEventListener('click', () => this.toggleDebugLogging());
 
         document.getElementById('btn-fetch-entities').addEventListener('click', () => this.fetchEntities());
         document.getElementById('btn-suggest').addEventListener('click', () => this.suggestChallenges());
@@ -2183,6 +2203,50 @@ const App = {
                 </tr>
             `;
         }).join('');
+    },
+
+    // --- Debug Logging ---
+
+    debugLogging: false,
+
+    updateDebugLogUI() {
+        const btn = document.getElementById('btn-toggle-debug-log');
+        const status = document.getElementById('debug-log-status');
+        const viewer = document.getElementById('debug-log-viewer');
+        if (!btn) return;
+        if (this.debugLogging) {
+            btn.textContent = 'Disable Debug Logging';
+            btn.className = 'btn btn-deny btn-small';
+            status.textContent = 'Active';
+            status.className = 'field-status set';
+            viewer.style.display = 'block';
+        } else {
+            btn.textContent = 'Enable Debug Logging';
+            btn.className = 'btn btn-secondary btn-small';
+            status.textContent = 'Off';
+            status.className = 'field-status unset';
+            viewer.style.display = 'none';
+        }
+    },
+
+    async toggleDebugLogging() {
+        const newState = !this.debugLogging;
+        try {
+            const resp = await fetch('/api/debug/logging', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: newState }),
+            });
+            const data = await resp.json();
+            this.debugLogging = data.debug_logging;
+            this.updateDebugLogUI();
+        } catch (err) {
+            console.error('Failed to toggle debug logging:', err);
+        }
+    },
+
+    clearDebugLogViewer() {
+        document.getElementById('debug-log-output').textContent = '';
     },
 };
 

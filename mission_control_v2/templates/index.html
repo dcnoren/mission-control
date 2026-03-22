@@ -216,6 +216,17 @@
                 <div class="section-label" style="margin-top:28px">Theme Phrases</div>
                 <p class="setup-desc">View and edit intro/outro phrases for each theme. These are the TTS announcements spoken during games.</p>
                 <div id="theme-phrases-list"></div>
+
+                <div class="section-label" style="margin-top:28px">Debug Logging</div>
+                <p class="setup-desc">Enable verbose debug logging. Logs stream live below and write to /app/data/logs/debug.log.</p>
+                <div style="display:flex;gap:12px;align-items:center">
+                    <button class="btn btn-secondary btn-small" id="btn-toggle-debug-log">Enable Debug Logging</button>
+                    <span class="field-status" id="debug-log-status"></span>
+                </div>
+                <div id="debug-log-viewer" style="display:none;margin-top:12px">
+                    <div id="debug-log-output" style="background:#111;color:#0f0;font-family:monospace;font-size:11px;padding:10px;border-radius:6px;max-height:400px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
+                    <button class="btn btn-secondary btn-small" style="margin-top:6px" onclick="App.clearDebugLogViewer()">Clear</button>
+                </div>
             </div>
         </div>
 

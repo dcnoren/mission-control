@@ -6,8 +6,6 @@ import io
 import json
 import logging
 import random
-import subprocess
-import tempfile
 import time
 import wave
 from pathlib import Path
@@ -15,7 +13,6 @@ from typing import Callable, Optional
 from urllib.parse import urlparse, urlunparse
 
 import aiohttp
-from mutagen.mp3 import MP3
 
 from challenge_db import ChallengeDB
 from challenges import Challenge, Difficulty, Target
@@ -108,52 +105,38 @@ class _AdaptiveThrottle:
             logger.info(f"TTS throttle increased: {self._delay:.1f}s between requests")
 
 
-def _pcm_to_mp3(pcm_data: bytes, sample_rate: int = 24000) -> bytes:
-    """Convert raw PCM 16-bit mono audio to MP3 via WAV intermediate."""
-    # Wrap PCM in WAV header
+def _pcm_to_wav(pcm_data: bytes, sample_rate: int = 24000) -> bytes:
+    """Wrap raw PCM 16-bit mono audio in a WAV header."""
     wav_buf = io.BytesIO()
     with wave.open(wav_buf, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)  # 16-bit
         wf.setframerate(sample_rate)
         wf.writeframes(pcm_data)
-    wav_bytes = wav_buf.getvalue()
-
-    # Convert WAV to MP3 via ffmpeg
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wf:
-        wf.write(wav_bytes)
-        wav_path = wf.name
-    mp3_path = wav_path.replace(".wav", ".mp3")
-    try:
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", wav_path, "-codec:a", "libmp3lame", "-q:a", "2", mp3_path],
-            capture_output=True, check=True,
-        )
-        return Path(mp3_path).read_bytes()
-    except subprocess.CalledProcessError as e:
-        logger.error(f"ffmpeg WAV→MP3 conversion failed: {e.stderr[:200]}")
-        # Fallback: return WAV (still playable by most media_players)
-        return wav_bytes
-    finally:
-        Path(wav_path).unlink(missing_ok=True)
-        Path(mp3_path).unlink(missing_ok=True)
+    return wav_buf.getvalue()
 
 
 def _cache_key(text: str, voice: GeminiVoice) -> str:
     """Generate a cache filename from text + Gemini voice."""
     parts = f"{voice.name}:{voice.style_prompt}:{text}"
     h = hashlib.sha256(parts.encode()).hexdigest()[:16]
-    return f"{h}.mp3"
+    return f"{h}.wav"
 
 
-def _get_mp3_duration(filepath: str | Path) -> float:
-    """Get actual MP3 duration in seconds using mutagen."""
+def _get_audio_duration(filepath: str | Path) -> float:
+    """Get audio duration in seconds. WAV: calculated from file size. MP3: fallback estimate."""
     try:
-        audio = MP3(str(filepath))
-        return audio.info.length + 0.5  # small buffer for playback start
+        size = Path(filepath).stat().st_size
+        name = Path(filepath).name
+        if name.endswith(".wav"):
+            # WAV: exact math — 24kHz, 16-bit, mono = 48000 bytes/sec, 44-byte header
+            return (size - 44) / 48000 + 0.5  # small buffer for playback start
+        else:
+            # MP3 intro music: estimate from file size (~16kbps average)
+            return size / 16000 + 0.5
     except Exception as e:
-        logger.warning(f"Could not read MP3 duration: {e}")
-        return 5.0  # safe fallback
+        logger.warning(f"Could not determine audio duration: {e}")
+        return 5.0
 
 
 class GameEngine:
@@ -364,10 +347,10 @@ class GameEngine:
         except (KeyError, IndexError) as e:
             raise RuntimeError(f"Unexpected Gemini TTS response: {e}")
 
-        # PCM → WAV → MP3
-        mp3_data = _pcm_to_mp3(pcm_data)
-        filepath.write_bytes(mp3_data)
-        logger.info(f"TTS generated: {filename} ({len(mp3_data)} bytes)")
+        # PCM → WAV (no MP3 conversion needed — WAV plays everywhere)
+        wav_data = _pcm_to_wav(pcm_data)
+        filepath.write_bytes(wav_data)
+        logger.info(f"TTS generated: {filename} ({len(wav_data)} bytes)")
         return filename
 
     def get_intro_music(self, theme_slug: str, static_filename: str) -> str:
@@ -606,7 +589,7 @@ class GameEngine:
 
         filename = Path(audio_path).name
         audio_url = f"{self.server_url}/audio/{filename}"
-        duration = _get_mp3_duration(audio_path)
+        duration = _get_audio_duration(audio_path)
 
         # Broadcast audio event — tvOS app picks this up and plays it
         await self.broadcast({
@@ -625,7 +608,7 @@ class GameEngine:
 
         filename = Path(audio_path).name
         audio_url = f"{self.server_url}/audio/{filename}"
-        duration = _get_mp3_duration(audio_path)
+        duration = _get_audio_duration(audio_path)
 
         await self.broadcast({
             "type": "local_play_audio",
@@ -673,7 +656,7 @@ class GameEngine:
         )
 
         # Wait for actual audio duration
-        duration = _get_mp3_duration(filepath)
+        duration = _get_audio_duration(filepath)
         logger.info(f"Playing on {resolved}: {filename} ({duration:.1f}s)")
         await asyncio.sleep(duration)
 
@@ -1101,7 +1084,7 @@ class GameEngine:
                     filename = await self.generate_tts(announcement, theme.announcer_voice)
                     audio_url = f"{self.server_url}/audio/{filename}"
                     audio_path = str(self.cache_dir / filename)
-                    duration = _get_mp3_duration(audio_path)
+                    duration = _get_audio_duration(audio_path)
 
                     await self.broadcast({
                         "type": "atv_play_audio",

@@ -1,5 +1,6 @@
 """FastAPI server for Mission Control."""
 import asyncio
+import collections
 import json
 import logging
 import os
@@ -43,15 +44,71 @@ CONFIG_FILE = DATA_DIR / "config.json"
 CACHE_DIR = DATA_DIR / "cache"
 VIDEO_DIR = CACHE_DIR / "video"
 IMAGE_DIR = CACHE_DIR / "images"
+LOG_DIR = DATA_DIR / "logs"
 
 # Ensure dirs exist before StaticFiles mounts
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 VIDEO_DIR.mkdir(parents=True, exist_ok=True)
 IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Connected WebSocket clients
 ws_clients: set[WebSocket] = set()
+
+
+# --- Debug Log Handler ---
+
+class _WebSocketLogHandler(logging.Handler):
+    """Buffers log records for WS broadcast and writes to file when enabled."""
+
+    def __init__(self, log_dir: Path, max_buffer: int = 500):
+        super().__init__()
+        self.log_dir = log_dir
+        self.log_file = None
+        self.max_buffer = max_buffer
+        self.pending = collections.deque()  # drained by broadcast loop
+        self.history = collections.deque(maxlen=max_buffer)  # kept for API
+        self._enabled = False
+
+    def enable(self):
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.log_file = open(self.log_dir / "debug.log", "a")
+        self._enabled = True
+
+    def disable(self):
+        self._enabled = False
+        if self.log_file:
+            self.log_file.close()
+            self.log_file = None
+
+    def emit(self, record):
+        if not self._enabled:
+            return
+        line = self.format(record)
+        self.pending.append(line)
+        self.history.append(line)
+        if self.log_file:
+            self.log_file.write(line + "\n")
+            self.log_file.flush()
+
+
+_ws_log_handler = _WebSocketLogHandler(LOG_DIR)
+_ws_log_handler.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
+logging.getLogger("mission_control").addHandler(_ws_log_handler)
+
+
+def set_debug_logging(enabled: bool):
+    """Toggle debug logging on/off."""
+    mc_logger = logging.getLogger("mission_control")
+    if enabled:
+        mc_logger.setLevel(logging.DEBUG)
+        _ws_log_handler.enable()
+        logger.info("Debug logging enabled")
+    else:
+        logger.info("Debug logging disabled")
+        mc_logger.setLevel(logging.INFO)
+        _ws_log_handler.disable()
 
 # Game engine (initialized on startup)
 engine: GameEngine = None
@@ -100,6 +157,19 @@ async def broadcast(data: dict):
     ws_clients -= disconnected
 
 
+async def _log_broadcast_loop():
+    """Drain log buffer and broadcast to WS clients at ~4Hz."""
+    while True:
+        await asyncio.sleep(0.25)
+        if not _ws_log_handler._enabled or not _ws_log_handler.pending:
+            continue
+        lines = []
+        while _ws_log_handler.pending:
+            lines.append(_ws_log_handler.pending.popleft())
+        if lines:
+            await broadcast({"type": "log_lines", "lines": lines})
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global engine
@@ -145,10 +215,18 @@ async def lifespan(app: FastAPI):
 
     _apply_phrase_overrides()
 
+    # Restore debug logging state
+    if config.get("debug_logging"):
+        set_debug_logging(True)
+
+    # Start log broadcast loop
+    log_task = asyncio.create_task(_log_broadcast_loop())
+
     # Log cache status on startup
-    cached_files = list(CACHE_DIR.glob("*.mp3"))
+    cached_files = list([f for f in CACHE_DIR.iterdir() if f.suffix in (".mp3", ".wav")])
     logger.info(f"Mission Control ready. HA: {ha_url} | Audio cache: {len(cached_files)} files")
     yield
+    log_task.cancel()
     if engine.running:
         engine.request_stop()
 
@@ -204,7 +282,7 @@ async def get_state():
 async def get_config():
     """Return saved config (masks secrets to just show if set)."""
     config = load_config()
-    cached_files = list(CACHE_DIR.glob("*.mp3"))
+    cached_files = list([f for f in CACHE_DIR.iterdir() if f.suffix in (".mp3", ".wav")])
     return {
         "ha_url": config.get("ha_url", ""),
         "ha_token_set": bool(config.get("ha_token") or os.environ.get("HA_TOKEN")),
@@ -215,6 +293,7 @@ async def get_config():
         "allowed_speakers": config.get("allowed_speakers", []),
         "floors": config.get("floors", []),
         "speaker_volume": config.get("speaker_volume", 0.40),
+        "debug_logging": config.get("debug_logging", False),
     }
 
 
@@ -255,6 +334,26 @@ async def update_config(req: ConfigRequest):
     return {"status": "saved"}
 
 
+class DebugLoggingRequest(BaseModel):
+    enabled: bool
+
+
+@app.post("/api/debug/logging")
+async def toggle_debug_logging(req: DebugLoggingRequest):
+    """Toggle debug logging on/off. Can be used while game is running."""
+    config = load_config()
+    config["debug_logging"] = req.enabled
+    save_config(config)
+    set_debug_logging(req.enabled)
+    return {"status": "ok", "debug_logging": req.enabled}
+
+
+@app.get("/api/debug/logs")
+async def get_recent_logs():
+    """Return recent debug log lines from the buffer."""
+    return {"lines": list(_ws_log_handler.history)}
+
+
 @app.get("/api/debug/entities")
 async def debug_entities():
     """Debug: show TTS and media_player entities from cache."""
@@ -293,7 +392,7 @@ async def save_allowed_speakers(req: AllowedSpeakersRequest):
 @app.get("/api/debug/cache")
 async def debug_cache():
     """Debug: list cached audio files."""
-    files = sorted(CACHE_DIR.glob("*.mp3"))
+    files = sorted([f for f in CACHE_DIR.iterdir() if f.suffix in (".mp3", ".wav")])
     return {
         "count": len(files),
         "files": [{"name": f.name, "size": f.stat().st_size} for f in files[:50]],
@@ -306,7 +405,7 @@ async def clear_tts_cache():
     if engine.running:
         return JSONResponse({"error": "Cannot clear cache while game is running"}, status_code=409)
     deleted = 0
-    for f in CACHE_DIR.glob("*.mp3"):
+    for f in [f for f in CACHE_DIR.iterdir() if f.suffix in (".mp3", ".wav")]:
         if not f.name.startswith("intro_music_"):
             f.unlink()
             deleted += 1
@@ -319,7 +418,7 @@ async def clear_all_cache():
     if engine.running:
         return JSONResponse({"error": "Cannot clear cache while game is running"}, status_code=409)
     deleted = 0
-    for f in CACHE_DIR.glob("*.mp3"):
+    for f in [f for f in CACHE_DIR.iterdir() if f.suffix in (".mp3", ".wav")]:
         f.unlink()
         deleted += 1
     for f in IMAGE_DIR.glob("*"):
