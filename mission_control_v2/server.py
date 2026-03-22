@@ -414,7 +414,7 @@ async def clear_tts_cache():
 
 @app.delete("/api/cache/all")
 async def clear_all_cache():
-    """Delete all cached content: TTS audio, intro music, and scene images."""
+    """Delete all cached content: TTS audio and scene images. Restores static intro music."""
     if engine.running:
         return JSONResponse({"error": "Cannot clear cache while game is running"}, status_code=409)
     deleted = 0
@@ -425,6 +425,10 @@ async def clear_all_cache():
         if f.is_file():
             f.unlink()
             deleted += 1
+    # Restore static intro music
+    for theme in ALL_THEMES.values():
+        if theme.intro_music_file:
+            engine.get_intro_music(theme.slug, theme.intro_music_file)
     return {"status": "cleared", "deleted": deleted}
 
 
